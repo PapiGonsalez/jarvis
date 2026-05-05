@@ -361,3 +361,44 @@ Discussed and locked the gray areas for P6 before planning. Seven decisions acro
 - Nested ideas (an idea linking to sub-ideas). Out of scope; flat folder.
 - Search / filter / tag UI. The folder is one digit's worth of files for the foreseeable future.
 - Ideas-graphify integration (the knowledge graph being built up by daily use). Visualization layer is far down the road.
+
+## 2026-05-05 — P7 Tokens tile
+
+Discussed and locked the gray areas for P7 before planning. Eight decisions across window, job-to-be-done, unit, aggregation, special-case projects, token math, and trend display.
+
+**Window — D-P7-01:** **7 days rolling.** Calendar days, today + 6 prior, in Europe/Bucharest. Most actionable horizon — visible week-pace without daily noise. Each new day rolls one off the back.
+
+**Job to be done — D-P7-02:** Tile answers **"where is my Claude Code time going?"** Per-project breakdown is the hero (not a single big number, not a sparkline, not cache efficiency). Aligns with `CLAUDE.md`'s third job: "be smart about prioritization (tokens, time, energy)".
+
+**Unit — D-P7-03:** **Raw tokens** (e.g., "12.3M tokens this week"). Adrian uses Claude Code via Pro subscription (flat-rate), so an API-priced $ figure would be hypothetical. Tokens are model-agnostic and honest about volume.
+
+**Aggregation — D-P7-04:** **Per-project breakdown, top 5 with horizontal bars; rest summed as "Other"**. Compact tile, captures the long tail without cluttering. Top 5 + "Other" + (potentially) "subagents" line.
+
+**Subagents handling — D-P7-05:** **Show as its own line** in the breakdown, labeled `subagents`. The `~/.claude/projects/subagents/` folder is where sub-agent runs accumulate regardless of parent project — not a project per se, but a real cost center. Treating it as a peer to projects is honest about where tokens go.
+
+**Worktree handling — D-P7-06:** **Combine worktree folders into the parent project**. Regicargo has the main folder plus 7 `.claude/worktrees/<auto-name>/` worktree folders. From the project-priority view they're all "regicargo". The folder-name encoding `--claude-worktrees-<slug>` is the marker to strip.
+
+**Token math — D-P7-07:** **All four flavors summed** — `input_tokens + cache_creation_input_tokens + cache_read_input_tokens + output_tokens`. Raw volume. Treats cache reads as "data that flowed" even though they're cheap; honest about the size of the context Claude is processing on Adrian's behalf.
+
+**Trend signal — D-P7-08:** **Both** — sparkline (7 daily bars) AND a small delta vs prior 7d ("▲ +12% vs prior 7 days"). Adrian deviated from the recommendation (delta-only) — wants the visual + the number. More information density on the tile, slight risk of crowding the per-project breakdown which is supposed to be the hero. Mitigation: keep sparkline tiny (one row of mini bars under the headline number).
+
+**Claude's discretion (not user-facing decisions):**
+- Project label normalization: strip leading `-`, strip `--claude-worktrees-…` suffix, strip common prefixes (`Users-adrian-projects-`, `Users-adrian-am-laravel-`, `Users-adrian-`). The bare `-Users-adrian` folder (Claude Code runs from `~`) becomes `global`. Worth a small unit-style sanity check during execution.
+- Endpoint shape: likely `GET /tokens/summary?days=7` returning `{ window, total_tokens, prior_total, delta_pct, daily: [...], projects: [{label, tokens, share}], errors }`. Per-day buckets in Europe/Bucharest TZ.
+- Number formatting on the tile: compact (`12.3M`, `4.2K`). Helper function client-side, e.g., `Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })`.
+- Sparkline rendering: tiny vertical bars (CSS, no chart library). 7 bars, height proportional to that day's total relative to the max in the window. Each bar ~3-4px wide, ~10-16px tall at peak. SVG or just `<div>`s.
+- Per-project bar widths: proportional to share of the 7d total. Width animates only on initial load; not on subsequent refreshes (avoid jumpy behavior).
+- Caching strategy: parse all 229 JSONL files on each request for v1 (~1-2s on M-series, acceptable). If it gets slow, add a `~/.local/jarvis-tokens-cache.json` keyed by file mtime. Defer until it bites.
+- Refresh strategy: same as Tasks/Calendar/Ideas — refresh-on-tab-focus + manual button.
+- Tile size: keeping at 1 cell wide (current bento grid layout). Vertical layout: header + headline + sparkline + 5–7 project bars. Tight but workable.
+
+**Deferred ideas (not P7):**
+- Window selector on the tile (toggle between 7d / 30d / today). Defer until "default 7d" feels wrong in practice.
+- API-priced $ display (per-model rates). Defer indefinitely while Adrian's on Pro flat-rate.
+- Per-project drill-down (tap a project bar → see day-by-day or session list). Defer until a real "where did this hour go" question shows up.
+- Cache hit ratio surface (separate stat or chip). Real signal but niche.
+- Alert thresholds (red when daily over X tokens). No budget pressure on Pro.
+- Cross-machine token aggregation. Adrian uses one Mac for Claude Code. Skip.
+- Real-time updates as JSONL grows. Manual refresh + on-focus is enough.
+
+**Open follow-up to surface during execution:** confirm the project-label normalization actually produces clean labels for all 14 project folders + the `subagents` bucket. Worth a small print-the-labels sanity step before wiring the endpoint.
