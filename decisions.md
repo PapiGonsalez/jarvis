@@ -82,6 +82,38 @@ For senders Adrian wants to stop receiving, the skill archives existing messages
 
 **Why:** Some "unsubscribe" links are tracking/malicious. Some confirm the email is valid (used for spam targeting). Better to let the user evaluate per sender. The cost is 11 manual clicks; the benefit is no risk of clicking a bad link.
 
+## 2026-05-05 — Four accounts in scope
+
+Jarvis will pull from four of Adrian's email/calendar accounts:
+
+- **Personal:** `adriangilbert26@gmail.com` (Google Workspace personal — Gmail wired, Calendar wired)
+- **Work 1 (voltlabs):** `adrian@voltlabs.eu` (Google Workspace — Calendar wired, empty)
+- **Work 2 (agroworld):** `adrian@agroworld.nl` (M365 / Outlook — admin-blocked)
+- **University (utwente):** `a.g.thereparambil@student.utwente.nl` (M365 / Outlook — admin-blocked for OAuth; ICS read-only feed wired for calendar)
+
+**Why:** Working student dev with multiple work/study contexts. Earlier scope was three; agroworld surfaced as a fourth active work email mid-session.
+
+## 2026-05-05 — M365 admin-consent wall (utwente + agroworld)
+
+Both M365 tenants require admin consent for `Calendars.ReadWrite` (and likely `Mail.Read`). Adrian declines to request admin approval from work/uni IT for personal-use apps.
+
+**Workarounds attempted:**
+- utwente Calendar: ICS feed (Outlook web → Publish a calendar). Works — read-only access. Adrian does cleanup manually in Outlook UI.
+- agroworld Calendar: Publish-calendar feature also disabled by IT. ICS path closed. **Skipped for now.**
+
+**Implication:** For M365 emails (utwente + agroworld), the workaround is **forwarding rules** — set up auto-forward in Outlook to a Gmail address Jarvis already reads. Worth trying before assuming both M365 emails are inaccessible.
+
+## 2026-05-05 — Pivot mid-P2: emails are the priority, not calendars
+
+Adrian clarified mid-session: tasks come from emails, not calendars. His morning brief should be generated from emails across all 4 accounts, not from calendar events.
+
+**Implication for phase plan:**
+- Wrap P2 (calendar work) with what we have: personal Cal cleaned, voltlabs Cal audited, utwente Cal read-only via ICS, agroworld Cal dropped.
+- New focus: **multi-account email pipeline + email→task extraction**. Replaces what was originally P6 (tasks tile from email triage) but elevated in priority — happens before the dashboard skeleton.
+- Forwarding rules from M365 → Gmail bring utwente + agroworld emails into a Gmail-readable inbox.
+
+**Why:** Adrian's actual workflow is email-driven. Calendar matters but isn't the hub. The original phase plan over-indexed on calendar; this corrects course.
+
 ## 2026-05-05 — Marktplaats messages stay in inbox
 
 `*@mail.marktplaats.nl` (per-buyer hashed addresses) gets the `Marktplaats` label but stays in inbox.
