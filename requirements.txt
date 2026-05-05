@@ -3,6 +3,7 @@ google-auth-oauthlib>=1.2.0
 msal>=1.30.0
 icalendar>=5.0.0
 recurring-ical-events>=2.1.0
+python-frontmatter>=1.0.0
 textual>=0.50
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
