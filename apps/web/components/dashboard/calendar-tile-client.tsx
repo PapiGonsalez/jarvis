@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -73,41 +74,106 @@ function SourceLabel({ source }: { source: string }) {
   );
 }
 
-function TimedRow({ event }: { event: CalendarEvent }) {
+function ExternalLinkButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+      title={label}
+      className="shrink-0 rounded p-1 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <ExternalLinkIcon />
+    </a>
+  );
+}
+
+function ExpandedDetail({ event }: { event: CalendarEvent }) {
+  const hasAny = event.description || event.location || event.organizer?.name || event.organizer?.email;
+  if (!hasAny) {
+    return (
+      <p className="pl-[3.75rem] pr-1 pb-2 text-[11px] italic text-muted-foreground/70">
+        No additional details.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1 pl-[3.75rem] pr-1 pb-2 text-[11px] text-muted-foreground">
+      {event.location ? (
+        <p>
+          <span className="text-muted-foreground/60">Location:</span> {event.location}
+        </p>
+      ) : null}
+      {event.organizer && (event.organizer.name || event.organizer.email) ? (
+        <p>
+          <span className="text-muted-foreground/60">Organizer:</span>{" "}
+          {event.organizer.name || event.organizer.email}
+        </p>
+      ) : null}
+      {event.description ? (
+        <p className="whitespace-pre-wrap">{event.description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+type RowProps = {
+  event: CalendarEvent;
+  expanded: boolean;
+  onToggle: () => void;
+};
+
+function TimedRow({ event, expanded, onToggle }: RowProps) {
   const tentative = event.status === "tentative";
   const time = event.start ? formatTime(event.start) : "—";
   const tmrw = event.start ? isTomorrow(event.start) : false;
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 py-1.5",
-        tentative && "opacity-50"
-      )}
-    >
-      <span className="w-14 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
-        {tmrw ? `Tmrw ${time}` : time}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm">{event.title}</span>
-      <SourceLabel source={event.source} />
+    <li className={cn(tentative && "opacity-50")}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-label={`${event.title} — ${expanded ? "collapse" : "expand"}`}
+        className="flex w-full items-center gap-3 py-1.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className="w-14 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          {tmrw ? `Tmrw ${time}` : time}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm">{event.title}</span>
+        <SourceLabel source={event.source} />
+        {event.link ? (
+          <ExternalLinkButton href={event.link} label={`Open ${event.title} in calendar`} />
+        ) : null}
+      </button>
+      {expanded ? <ExpandedDetail event={event} /> : null}
     </li>
   );
 }
 
-function AllDayRow({ event }: { event: CalendarEvent }) {
+function AllDayRow({ event, expanded, onToggle }: RowProps) {
   const tentative = event.status === "tentative";
   const tmrw = event.start ? isTomorrow(event.start) : false;
   return (
-    <li
-      className={cn(
-        "flex items-center gap-3 py-1.5",
-        tentative && "opacity-50"
-      )}
-    >
-      <span className="w-14 shrink-0 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
-        {tmrw ? "Tmrw" : "Today"}
-      </span>
-      <span className="min-w-0 flex-1 truncate text-sm">{event.title}</span>
-      <SourceLabel source={event.source} />
+    <li className={cn(tentative && "opacity-50")}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-label={`${event.title} — ${expanded ? "collapse" : "expand"}`}
+        className="flex w-full items-center gap-3 py-1.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className="w-14 shrink-0 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+          {tmrw ? "Tmrw" : "Today"}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-sm">{event.title}</span>
+        <SourceLabel source={event.source} />
+        {event.link ? (
+          <ExternalLinkButton href={event.link} label={`Open ${event.title} in calendar`} />
+        ) : null}
+      </button>
+      {expanded ? <ExpandedDetail event={event} /> : null}
     </li>
   );
 }
@@ -145,6 +211,13 @@ export function CalendarTileClient({ initial }: { initial: Initial }) {
   const total = data.all_day.length + data.timed.length;
   const errorSources = Object.keys(data.errors);
 
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingExpanded, setPendingExpanded] = useState(false);
+
+  function toggle(id: string) {
+    setExpandedId((cur) => (cur === id ? null : id));
+  }
+
   return (
     <Card className="group/tile relative h-full bg-card/60 backdrop-blur-sm transition-colors hover:bg-card/80">
       <CardHeader className="flex-row items-center justify-between gap-2">
@@ -166,10 +239,47 @@ export function CalendarTileClient({ initial }: { initial: Initial }) {
         ) : (
           <div className="flex flex-col gap-3">
             {data.pending.length > 0 ? (
-              <section className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-2">
-                <p className="text-xs text-amber-200/90">
-                  {data.pending.length} awaiting response
-                </p>
+              <section className="rounded-md border border-amber-500/20 bg-amber-500/5">
+                <button
+                  type="button"
+                  onClick={() => setPendingExpanded((v) => !v)}
+                  aria-expanded={pendingExpanded}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left text-xs text-amber-200/90 transition-colors hover:bg-amber-500/10"
+                >
+                  <span>{data.pending.length} awaiting response</span>
+                  <ChevronIcon open={pendingExpanded} />
+                </button>
+                {pendingExpanded ? (
+                  <ul className="flex flex-col divide-y divide-foreground/5 border-t border-amber-500/20 px-2 pb-1">
+                    {data.pending.map((e) => {
+                      const tmrw = e.start ? isTomorrow(e.start) : false;
+                      const time = e.start && !e.all_day ? formatTime(e.start) : "";
+                      const label = e.all_day
+                        ? (tmrw ? "Tmrw" : "Today")
+                        : (tmrw ? `Tmrw ${time}` : time);
+                      return (
+                        <li
+                          key={`pending-${e.source}-${e.id}`}
+                          className="flex items-center gap-3 py-1.5"
+                        >
+                          <span className="w-14 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                            {label}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm">
+                            {e.title}
+                          </span>
+                          <SourceLabel source={e.source} />
+                          {e.link ? (
+                            <ExternalLinkButton
+                              href={e.link}
+                              label={`Open ${e.title} in calendar`}
+                            />
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
               </section>
             ) : null}
 
@@ -177,9 +287,17 @@ export function CalendarTileClient({ initial }: { initial: Initial }) {
               <section className="flex flex-col gap-1">
                 <SectionLabel>All day</SectionLabel>
                 <ul className="flex flex-col divide-y divide-foreground/5">
-                  {data.all_day.map((e) => (
-                    <AllDayRow key={`${e.source}-${e.id}`} event={e} />
-                  ))}
+                  {data.all_day.map((e) => {
+                    const key = `${e.source}-${e.id}`;
+                    return (
+                      <AllDayRow
+                        key={key}
+                        event={e}
+                        expanded={expandedId === key}
+                        onToggle={() => toggle(key)}
+                      />
+                    );
+                  })}
                 </ul>
               </section>
             ) : null}
@@ -187,9 +305,17 @@ export function CalendarTileClient({ initial }: { initial: Initial }) {
             {data.timed.length > 0 ? (
               <section className="flex flex-col gap-1">
                 <ul className="flex flex-col divide-y divide-foreground/5">
-                  {data.timed.map((e) => (
-                    <TimedRow key={`${e.source}-${e.id}`} event={e} />
-                  ))}
+                  {data.timed.map((e) => {
+                    const key = `${e.source}-${e.id}`;
+                    return (
+                      <TimedRow
+                        key={key}
+                        event={e}
+                        expanded={expandedId === key}
+                        onToggle={() => toggle(key)}
+                      />
+                    );
+                  })}
                 </ul>
               </section>
             ) : null}
@@ -220,6 +346,41 @@ function CalendarIcon() {
     >
       <rect x="3" y="4" width="18" height="18" rx="3" />
       <path d="M16 2v4M8 2v4M3 10h18" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </svg>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn("transition-transform", open && "rotate-180")}
+    >
+      <path d="m6 9 6 6 6-6" />
     </svg>
   );
 }
