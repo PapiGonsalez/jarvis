@@ -8,13 +8,17 @@ Run from repo root:
 """
 from __future__ import annotations
 
-from datetime import date as date_cls
+import json
+import os
+from datetime import date as date_cls, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from tools import gcal, ics_cal
 from tools.today import (
     group_by_account,
     load_tasks,
@@ -22,6 +26,8 @@ from tools.today import (
     re_render,
     save_tasks,
 )
+
+LOCAL_TZ = ZoneInfo("Europe/Bucharest")
 
 
 class TaskOut(BaseModel):
@@ -51,6 +57,28 @@ class TodayOut(BaseModel):
 class ToggleOut(BaseModel):
     id: str
     status: str
+
+
+class CalendarEvent(BaseModel):
+    source: str
+    id: str
+    title: str
+    start: str | None = None
+    end: str | None = None
+    all_day: bool
+    status: str
+    link: str | None = None
+    description: str | None = None
+    location: str | None = None
+    organizer: dict[str, Any] | None = None
+
+
+class CalendarOut(BaseModel):
+    window: dict[str, str]
+    all_day: list[CalendarEvent]
+    timed: list[CalendarEvent]
+    pending: list[CalendarEvent]
+    errors: dict[str, str] = {}
 
 
 app = FastAPI(title="Jarvis API", version="0.1.0")
@@ -107,6 +135,62 @@ async def tasks_today(include_done: bool = False) -> TodayOut:
             GroupOut(account=acct, tasks=[_to_task_out(t) for t in t_list])
             for acct, t_list in grouped.items()
         ],
+    )
+
+
+def _compute_calendar_window(window_hours: int) -> tuple[datetime, datetime]:
+    """t_min = now (local TZ); t_max = end of (today + ceil(window_hours/24)) days.
+
+    Default 36h means "from now through end of tomorrow", avoiding a sliding
+    cliff where late-evening events drop off the tile mid-evening.
+    """
+    now = datetime.now(LOCAL_TZ)
+    end_of_today = now.replace(hour=23, minute=59, second=59, microsecond=0)
+    days_ahead = max(0, (window_hours - 1) // 24)
+    return now, end_of_today + timedelta(days=days_ahead)
+
+
+@app.get("/calendar/upcoming", response_model=CalendarOut)
+async def calendar_upcoming(window_hours: int = 36) -> CalendarOut:
+    fixture_path = os.environ.get("JARVIS_CALENDAR_FIXTURE")
+    if fixture_path:
+        with open(fixture_path) as f:
+            return CalendarOut(**json.load(f))
+
+    t_min, t_max = _compute_calendar_window(window_hours)
+
+    sources: list[tuple[str, Any]] = [
+        ("personal", lambda: gcal.get_upcoming("personal", t_min, t_max)),
+        ("work",     lambda: gcal.get_upcoming("work", t_min, t_max)),
+        ("uni",      lambda: ics_cal.get_upcoming("utwente", t_min, t_max)),
+    ]
+
+    all_events: list[dict] = []
+    errors: dict[str, str] = {}
+    for label, fetcher in sources:
+        try:
+            for e in fetcher():
+                if label == "uni":
+                    e["source"] = "uni"  # relabel utwente -> uni per D-P5-02 / D-P5-05
+                all_events.append(e)
+        except (Exception, SystemExit) as exc:
+            errors[label] = f"{type(exc).__name__}: {exc}"
+
+    visible = [e for e in all_events if e.get("status") != "declined"]
+    pending = [e for e in visible if e.get("status") == "needsAction"]
+    all_day = [e for e in visible if e.get("all_day")]
+    timed   = [e for e in visible if not e.get("all_day")]
+
+    all_day.sort(key=lambda e: (e.get("start") or "", e.get("title") or ""))
+    timed.sort(key=lambda e: e.get("start") or "")
+    pending.sort(key=lambda e: e.get("start") or "")
+
+    return CalendarOut(
+        window={"t_min": t_min.isoformat(), "t_max": t_max.isoformat()},
+        all_day=[CalendarEvent(**e) for e in all_day],
+        timed=[CalendarEvent(**e) for e in timed],
+        pending=[CalendarEvent(**e) for e in pending],
+        errors=errors,
     )
 
 
