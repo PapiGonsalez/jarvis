@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from tools import gcal, ics_cal
+from tools import gcal, ics_cal, ideas as ideas_tool
 from tools.today import (
     group_by_account,
     load_tasks,
@@ -28,6 +28,7 @@ from tools.today import (
 )
 
 LOCAL_TZ = ZoneInfo("Europe/Bucharest")
+GITHUB_BASE = "https://github.com/PapiGonsalez/jarvis"
 
 
 class TaskOut(BaseModel):
@@ -79,6 +80,24 @@ class CalendarOut(BaseModel):
     timed: list[CalendarEvent]
     pending: list[CalendarEvent]
     errors: dict[str, str] = {}
+
+
+class Idea(BaseModel):
+    id: str
+    title: str
+    type: str
+    status: str
+    started: str
+    last_touched: str
+    next_action: str | None = None
+    description: str | None = None
+    status_notes: str | None = None
+    filename: str
+    link: str
+
+
+class IdeasOut(BaseModel):
+    ideas: list[Idea]
 
 
 app = FastAPI(title="Jarvis API", version="0.1.0")
@@ -192,6 +211,31 @@ async def calendar_upcoming(window_hours: int = 36) -> CalendarOut:
         pending=[CalendarEvent(**e) for e in pending],
         errors=errors,
     )
+
+
+def _to_idea(item: dict) -> Idea:
+    return Idea(
+        id=item["id"],
+        title=item["title"],
+        type=item["type"],
+        status=item["status"],
+        started=item["started"],
+        last_touched=item["last_touched"],
+        next_action=item.get("next_action"),
+        description=item.get("description"),
+        status_notes=item.get("status_notes"),
+        filename=item["filename"],
+        link=f"{GITHUB_BASE}/blob/main/ideas/{item['filename']}",
+    )
+
+
+@app.get("/ideas/list", response_model=IdeasOut)
+async def ideas_list() -> IdeasOut:
+    fixture_path = os.environ.get("JARVIS_IDEAS_FIXTURE")
+    if fixture_path and os.path.exists(fixture_path):
+        with open(fixture_path) as f:
+            return IdeasOut(**json.load(f))
+    return IdeasOut(ideas=[_to_idea(i) for i in ideas_tool.get_ideas()])
 
 
 @app.post("/tasks/{task_id}/done", response_model=ToggleOut)

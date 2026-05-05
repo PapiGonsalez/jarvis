@@ -19,4 +19,5 @@ web:
 
 api:
 	JARVIS_CALENDAR_FIXTURE=$${JARVIS_CALENDAR_FIXTURE:-/tmp/jarvis-calendar-active-fixture.json} \
+	JARVIS_IDEAS_FIXTURE=$${JARVIS_IDEAS_FIXTURE:-/tmp/jarvis-ideas-active-fixture.json} \
 	  .venv/bin/uvicorn apps.api.main:app --reload --port 8001
