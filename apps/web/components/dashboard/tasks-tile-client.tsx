@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+
+const EXTRACT_TASKS_COMMAND =
+  "Open Claude Code in ~/projects/jarvis and say:\n\n  extract today's tasks";
 
 export type Source = {
   account?: string;
@@ -235,14 +246,16 @@ export function TasksTileClient({ initial }: { initial: Initial }) {
       </CardHeader>
       <CardContent className="flex-1">
         {isError ? (
-          <p className="text-xs text-muted-foreground">
-            Couldn’t load tasks ({data.error}){" "}
-            <button onClick={onRefresh} className="underline">
-              retry
-            </button>
-          </p>
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-xs text-muted-foreground">
+              Couldn’t load tasks ({data.error}).
+            </p>
+            <Button size="sm" variant="secondary" onClick={onRefresh} disabled={pending}>
+              Retry
+            </Button>
+          </div>
         ) : data.total === 0 ? (
-          <p className="text-xs text-muted-foreground">No tasks for today yet.</p>
+          <EmptyState />
         ) : (
           <div className="flex flex-col gap-4">
             {data.groups.map((g) => (
@@ -257,6 +270,60 @@ export function TasksTileClient({ initial }: { initial: Initial }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function EmptyState() {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(EXTRACT_TASKS_COMMAND);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard may be unavailable on http; user can copy by hand
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-3">
+      <p className="text-xs text-muted-foreground">No tasks for today yet.</p>
+      <Button
+        size="sm"
+        variant="secondary"
+        onClick={() => {
+          setCopied(false);
+          setOpen(true);
+        }}
+      >
+        Pull tasks from inbox
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Extract tasks</DialogTitle>
+            <DialogDescription>
+              Pull recent mail across personal + voltlabs Gmail, classify, and write
+              tasks/&lt;today&gt;.jsonl.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border border-border bg-muted/40 p-3">
+            <pre className="overflow-x-auto whitespace-pre-wrap break-all font-mono text-xs leading-relaxed text-foreground">
+              {EXTRACT_TASKS_COMMAND}
+            </pre>
+          </div>
+
+          <div className="flex items-center justify-end">
+            <Button size="sm" variant="secondary" onClick={copy}>
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   IdeasTile,
   CalendarTile,
@@ -5,14 +6,16 @@ import {
   ScratchpadTile,
   PinnedNotesTile,
 } from "./tiles";
-import { TasksTile } from "./tasks-tile";
+import { TasksTile, TasksTileSkeleton } from "./tasks-tile";
 
 export function BentoGrid() {
   return (
     <div className="grid auto-rows-[minmax(160px,auto)] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {/* Tasks — largest, top-left, the focal tile */}
       <div className="lg:col-span-2 lg:row-span-2">
-        <TasksTile />
+        <Suspense fallback={<TasksTileSkeleton />}>
+          <TasksTile />
+        </Suspense>
       </div>
 
       {/* Calendar — top-right pair */}
