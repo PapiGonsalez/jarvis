@@ -203,3 +203,45 @@ But the classifier itself stays strict on what becomes a task. Specifically: sup
 **Known limitation, deferred:** task records don't carry Gmail labels, so utwente/agroworld forwarded mail shows under `personal` (the receiving Gmail account) rather than as their own sections. To split them out, the extractor would need to record `labels` on each record. Out of scope for P2.3 — deferred to a later P2.2.x enhancement when it actually starts to bite.
 
 **New dep:** `textual>=0.50`. Pulls in `rich`, `markdown-it-py`, `pygments`, `linkify-it-py`, `mdit-py-plugins`, `mdurl`, `platformdirs`, `typing-extensions`, `uc-micro-py`. ~10 small libs total, all pure-Python.
+
+## 2026-05-05 — P3 stack: Next.js 16 + shadcn/ui + Tailwind 4 + Tailscale
+
+**Vision shift surfaced this session:** Jarvis isn't a "lean Python tinker dashboard" — it's a long-term Tony-Stark-companion-shaped product (multimodal, polished, cutting-edge AI). Earlier prelim recommendation of FastAPI+HTMX was wrong for that. Stack chosen: **Next.js 16 (App Router, TypeScript) + React 19 + Tailwind 4 + shadcn/ui + Vercel AI SDK (later, for chat) + Framer Motion (later, for motion)**. Python tools stay where they are; future tile data comes from a FastAPI sidecar at `apps/api/` (deferred to P4 when first tile needs live data).
+
+**Why Next.js over Streamlit/Reflex/NiceGUI/SvelteKit:**
+- **Aesthetic ceiling = none** — full React ecosystem (shadcn primitives, Framer Motion, react-three-fiber later if Iron Man HUD vibes are wanted).
+- **AI ecosystem is Next-first** — Vercel AI SDK, Anthropic's own examples, agent/tool/voice patterns all land here first.
+- **Mobile = PWA** — install to homescreen, fullscreen, native-ish feel over Tailscale. No App Store, no native code.
+- **Free** — runs on Mac via `next dev`, exposed via Tailscale's free tier (100 devices / 3 users). No Vercel hosting needed; no domain needed (Tailscale MagicDNS gives `lp-agw02.tail2877af.ts.net`).
+
+**Why not the alternatives:**
+- **Streamlit** — opinionated layout (script-rerun model) caps the aesthetic ceiling well below the JARVIS goal.
+- **Reflex / NiceGUI** — Python wrappers over React/Vue. Bleeding-edge React libs become awkward through the abstraction; the whole point is to NOT be locked out of cutting-edge stuff.
+- **SvelteKit** — leaner DX but the AI/agent ecosystem is Next-first; would be swimming against the current.
+- **FastAPI + HTMX** — great for forms/CRUD, capped at form-shaped interactivity. Wrong for ambient AI assistant UI.
+
+**Repo restructure:** Added `apps/` layer, with `apps/web/` for Next.js. Python tools in `tools/` are unchanged. `apps/api/` is reserved for the FastAPI sidecar (lands in P4).
+
+**P3 ships chrome only:**
+- 6 tile placeholders (Tasks, Calendar, Ideas, Tokens, Scratchpad, Pinned Notes) in a bento grid (Tasks largest, 2×2 on desktop)
+- Live clock + "Jarvis · personal OS" wordmark in the header
+- "Ask Jarvis…" chat input pinned bottom (UI-only, no LLM wiring — that's P10)
+- 4 skill quick-action buttons in a row above the chat input (Extract tasks, Today's tasks, Cleanup inbox, Cleanup calendar). Click → modal with the terminal command + Copy button. Real invocation via FastAPI sidecar comes in P4+.
+- PWA manifest at `app/manifest.ts`, icon and apple-icon generated dynamically via Next's `ImageResponse` (no static PNG files needed).
+- Dark theme is default + only — no light mode for v1, no theme toggle. Matches the JARVIS aesthetic and ships less surface to maintain.
+
+**Tailscale HTTP gotcha (worth knowing):** Chrome on Android (and increasingly all modern browsers) auto-upgrades bare hostnames to HTTPS, which fails on the dev server (HTTP-only) with `ERR_SSL_PROTOCOL_ERROR`. Workaround: type `http://` explicitly. Permanent fix (deferred to a P3 follow-up): `tailscale serve` + `tailscale cert` for a real Let's Encrypt cert on `lp-agw02.tail2877af.ts.net` — gets HTTPS and unlocks the PWA install banner + browser web-push/mic APIs.
+
+**New deps via `apps/web/package.json`:** Next 16.2.4, React 19.2.4, Tailwind 4, TypeScript 5, ESLint 9, shadcn/ui (slate base, css-variables theming). All free, all open-source.
+
+## 2026-05-05 — Free-only constraint locked in for the Jarvis stack
+
+Adrian explicitly required: "this has to be free... only person using it is me, no plan to make it a product yet." Stack designed accordingly:
+
+- **Software:** all open-source MIT/Apache (Next, React, Tailwind, shadcn/ui, FastAPI, etc.) — $0.
+- **Hosting:** local on the Mac via `next dev` / `next start` — $0. No Vercel deploy.
+- **Networking:** Tailscale free tier — fits 100 devices / 3 users; covers personal use for years.
+- **Domain:** Tailscale MagicDNS hostname (`*.ts.net`) — $0. No domain registration needed.
+- **LLM API (future, deferred to P10):** options when the time comes — Claude Code (already paying for it), Anthropic API direct (pay-per-use, typically $0–5/mo personal), local Ollama (free), local Whisper for voice (free). Decided per-feature when we wire chat/voice; not part of the stack itself.
+
+**Trade-off accepted:** if Jarvis ever wants to reach beyond Adrian's tailnet (share with someone, public demo), we'd need to add a domain + hosting + auth — but that's a "if it ever ships externally" decision, deliberately out of scope.
