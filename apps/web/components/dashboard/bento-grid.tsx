@@ -1,12 +1,12 @@
 import { Suspense } from "react";
 import {
-  IdeasTile,
   TokensTile,
   ScratchpadTile,
   PinnedNotesTile,
 } from "./tiles";
 import { TasksTile, TasksTileSkeleton } from "./tasks-tile";
 import { CalendarTile, CalendarTileSkeleton } from "./calendar-tile";
+import { IdeasTile, IdeasTileSkeleton } from "./ideas-tile";
 
 export function BentoGrid() {
   return (
@@ -27,7 +27,9 @@ export function BentoGrid() {
 
       {/* Ideas */}
       <div>
-        <IdeasTile />
+        <Suspense fallback={<IdeasTileSkeleton />}>
+          <IdeasTile />
+        </Suspense>
       </div>
 
       {/* Tokens */}

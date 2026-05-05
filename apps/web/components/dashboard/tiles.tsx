@@ -40,17 +40,6 @@ function TileShell({ title, badge, icon, empty, className }: TileShellProps) {
   );
 }
 
-export function IdeasTile() {
-  return (
-    <TileShell
-      title="Ideas"
-      badge="P6"
-      icon={<IdeaIcon />}
-      empty="Self-directed projects + explorations."
-    />
-  );
-}
-
 export function TokensTile() {
   return (
     <TileShell
@@ -85,14 +74,6 @@ export function PinnedNotesTile() {
 }
 
 // ── Icons (inline SVG, 16px, currentColor) ───────────────────────────────
-
-function IdeaIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.73c.6.5 1 1.27 1 2.07V18h6v-1.2c0-.8.4-1.57 1-2.07A7 7 0 0 0 12 2Z" />
-    </svg>
-  );
-}
 
 function TokenIcon() {
   return (
