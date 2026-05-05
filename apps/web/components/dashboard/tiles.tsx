@@ -40,17 +40,6 @@ function TileShell({ title, badge, icon, empty, className }: TileShellProps) {
   );
 }
 
-export function TokensTile() {
-  return (
-    <TileShell
-      title="Tokens"
-      badge="P7"
-      icon={<TokenIcon />}
-      empty="Claude Code usage budget."
-    />
-  );
-}
-
 export function ScratchpadTile() {
   return (
     <TileShell
@@ -74,15 +63,6 @@ export function PinnedNotesTile() {
 }
 
 // ── Icons (inline SVG, 16px, currentColor) ───────────────────────────────
-
-function TokenIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v10M9 9.5h4.5a2.5 2.5 0 0 1 0 5H9" />
-    </svg>
-  );
-}
 
 function ScratchIcon() {
   return (
