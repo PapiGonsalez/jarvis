@@ -295,6 +295,62 @@ def cmd_apply_label(args):
     _bulk_modify(svc, ids, add=[label_id], remove=remove, action_label="labeled")
 
 
+def _find_label(svc, name: str) -> dict:
+    labels = svc.users().labels().list(userId="me").execute().get("labels", [])
+    target = next((l for l in labels if l["name"] == name), None)
+    if not target:
+        sys.exit(f"Label not found: {name!r}")
+    return target
+
+
+def cmd_list_labels(args):
+    """List all labels with counts and colors."""
+    svc = get_service()
+    labels = svc.users().labels().list(userId="me").execute().get("labels", [])
+    full = [svc.users().labels().get(userId="me", id=l["id"]).execute() for l in labels]
+    system = sorted([l for l in full if l.get("type") == "system"], key=lambda x: x["name"])
+    user = sorted([l for l in full if l.get("type") == "user"], key=lambda x: x["name"])
+
+    print(f"=== System ({len(system)}) ===")
+    for l in system:
+        t, u = l.get("messagesTotal", 0), l.get("messagesUnread", 0)
+        print(f"  {l['name']:<30}  {t:>7,} total  {u:>7,} unread")
+    print(f"\n=== User ({len(user)}) ===")
+    for l in user:
+        t, u = l.get("messagesTotal", 0), l.get("messagesUnread", 0)
+        c = l.get("color", {})
+        bg = c.get("backgroundColor", "—")
+        print(f"  {l['name']:<40}  {t:>6,} total  {u:>6,} unread  bg={bg}")
+
+
+def cmd_delete_label(args):
+    svc = get_service()
+    target = _find_label(svc, args.label)
+    if not args.force:
+        n = target.get("messagesTotal", 0)
+        if n > 0:
+            sys.exit(f"Label {args.label!r} has {n} messages. Use --force to delete anyway (messages stay; just lose the label).")
+    svc.users().labels().delete(userId="me", id=target["id"]).execute()
+    print(f"Deleted label: {args.label}")
+
+
+def cmd_rename_label(args):
+    svc = get_service()
+    target = _find_label(svc, args.from_name)
+    svc.users().labels().patch(
+        userId="me", id=target["id"], body={"name": args.to_name}
+    ).execute()
+    print(f"Renamed: {args.from_name} -> {args.to_name}")
+
+
+def cmd_set_label_color(args):
+    svc = get_service()
+    target = _find_label(svc, args.label)
+    body = {"color": {"backgroundColor": args.bg, "textColor": args.text}}
+    svc.users().labels().patch(userId="me", id=target["id"], body=body).execute()
+    print(f"Color set on '{args.label}': bg={args.bg} text={args.text}")
+
+
 def cmd_create_filter(args):
     svc = get_service()
     add_ids: list[str] = []
@@ -356,6 +412,22 @@ def main():
     al.add_argument("--archive", action="store_true")
     al.add_argument("--dry-run", action="store_true")
 
+    sub.add_parser("list-labels", help="List all labels with counts and colors")
+
+    dl = sub.add_parser("delete-label", help="Delete a user label by name (messages stay)")
+    dl.add_argument("--label", required=True)
+    dl.add_argument("--force", action="store_true",
+                    help="Delete even if label has messages")
+
+    rn = sub.add_parser("rename-label", help="Rename a label by name")
+    rn.add_argument("--from", dest="from_name", required=True)
+    rn.add_argument("--to", dest="to_name", required=True)
+
+    sc = sub.add_parser("set-label-color", help="Set background and text colors on a label")
+    sc.add_argument("--label", required=True)
+    sc.add_argument("--bg", required=True, help="Background hex (e.g. #16a766)")
+    sc.add_argument("--text", required=True, help="Text hex (e.g. #ffffff)")
+
     cf = sub.add_parser("create-filter", help="Persistent Gmail filter")
     cf.add_argument("--from", dest="sender_from", required=True,
                     help="Match: --from 'x@y.com' or '*@y.com'")
@@ -374,6 +446,10 @@ def main():
         "mark-read":     cmd_mark_read,
         "apply-label":   cmd_apply_label,
         "create-filter": cmd_create_filter,
+        "list-labels":   cmd_list_labels,
+        "delete-label":  cmd_delete_label,
+        "rename-label":  cmd_rename_label,
+        "set-label-color": cmd_set_label_color,
     }
     try:
         handlers[args.cmd](args)

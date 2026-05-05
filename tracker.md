@@ -7,11 +7,11 @@
 ## Done
 
 - 2026-05-05 — P0: repo scaffolded, CLAUDE.md, decisions log, folder tree, git init on `main`
-- 2026-05-05 — P1: cleanup-inbox skill + tools/gmail.py + venv. Personal Gmail 22,981 → 5,071 inbox (-17,910). 5 filters live, 10 labels (incl. Banking/India for confirmed Indian banking accounts). 13 senders manually unsubscribed pending. Rules captured to `references/email-rules-personal.md`. Skill is reusable for ongoing triage.
+- 2026-05-05 — P1: cleanup-inbox skill + tools/gmail.py + venv. Personal Gmail 22,981 → 4,494 inbox (-18,487, ~80% reduction). Unread in inbox 19,700 → 199 (~99% visual cleanup). **8 filters live**, **21 labels** organized + category-colored. 27 senders manually unsubscribed (queued for Adrian to click). Label management subcommands added (list/delete/rename/set-color). Rules captured to `references/email-rules-personal.md`.
 
 ## Next up
 
-- **P1 follow-up (any time):** Adrian completes 11 manual unsubscribes in Gmail (list in `references/email-rules-personal.md`). Optional: re-run skill to handle remaining 5,114 inbox tail.
+- **P1 follow-up (any time):** Adrian completes 27 manual unsubscribes in Gmail (list in `references/email-rules-personal.md`). The skill is reusable for any future cleanup pass.
 - **P2: Calendar organization** — audit + cleanup of personal Google Calendar, similar shape to P1 (~2-3 hrs).
 
 ## Phase plan

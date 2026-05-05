@@ -2,44 +2,85 @@
 
 Captured during P1 cleanup. Source of truth for `cleanup-inbox` and (future) `triage-inbox` skills.
 
-## Stats — cumulative (2026-05-05)
+## Stats — cumulative
 
-| Metric | Before | After batch 1-3 | After batch 4 |
-|---|---:|---:|---:|
-| Inbox total | 22,981 | 5,114 | **5,071** |
-| Unread in inbox | ~19,700 | 1,909 | **1,868** |
-| Filters active (auto-route) | 0 | 5 | **5** |
-| Labels created | 0 | 9 | **10** |
+| Metric | Session start (5 May AM) | After all batches |
+|---|---:|---:|
+| Inbox total | 22,981 | **4,494** |
+| Unread in inbox | ~19,700 | **199** |
+| Filters active (auto-route) | 0 | **8** |
+| User labels | 7 (some empty/junk) | **21** (organized + colored) |
 
-Total messages moved out of inbox: ~17,910.
+Total messages moved out of inbox: ~18,500. Inbox 80% smaller, unread visual clutter 99% gone.
+
+## Label organization
+
+### Color scheme (category-coded)
+
+| Color | Category | Labels |
+|---|---|---|
+| 🟢 Green | Banking | `Banking/India`, `Banking/Bunq` |
+| ⚫ Grey | Marketing | `Marketing/{Bulk, Myprotein, Zamnesia, AliExpress, Alibaba}` |
+| 🔵 Blue | Shipping + Service | `Shipping/{DHL, Amazon, DPD, bol}`, `Service/{Klarna, ASUS}` |
+| 🟠 Orange | Marketplace | `Marktplaats`, `Marktplaats/Auto` |
+| 🟡 Yellow | Tools / alerts | `Tweakers` |
+| 🟣 Purple | Education | `Education/{UTwente, Calgary, MITACS, Admissions}` |
+| 🩷 Pink | Personal | `Teenu Sauce` |
+
+### Deleted labels (residue)
+- `[Imap]/Drafts`, `[Imap]/Trash` — IMAP client residue, both empty
+
+### Renamed (nested under Education/)
+- `UTwente` → `Education/UTwente`
+- `University of Calgary` → `Education/Calgary`
+- `MITACS` → `Education/MITACS`
+- `Admissions` → `Education/Admissions`
 
 ## Bulk passes
 
 ### 2026-05-05 — Old unread bankruptcy
-- Query: `is:unread older_than:6m`
-- Action: archived 16,943 messages
-- Rationale: time-expired; action window closed for support tickets, marketing, alerts
+- Query: `is:unread older_than:6m` → archived **16,943** messages
+
+### 2026-05-05 — Mark-read of older unread
+- Query: `is:unread in:inbox older_than:30d` → marked read **1,153** messages
+- Rationale: visual cleanup; messages stay in inbox but lose bold/unread styling. Last 30 days remain unread for review.
 
 ## Auto-archive filters (Gmail filters live; future mail skips inbox)
 
-| From | Label |
+| Match | Label |
 |---|---|
-| `info@n.myprotein.com` | `Marketing/Myprotein` |
-| `bulk_nl@news.bulk.com` | `Marketing/Bulk` |
-| `news@marketing.zamnesia.com` | `Marketing/Zamnesia` |
-| `notification@tweakers.net` | `Tweakers` |
+| `from:info@n.myprotein.com` | `Marketing/Myprotein` |
+| `from:bulk_nl@news.bulk.com` | `Marketing/Bulk` |
+| `from:news@marketing.zamnesia.com` | `Marketing/Zamnesia` |
+| `from:notification@tweakers.net` | `Tweakers` |
+| `from:automatisch@marktplaats.nl` | `Marktplaats/Auto` |
+| `from:aliexpress.com` (domain) | `Marketing/AliExpress` |
+| `from:alibaba.com` (domain) | `Marketing/Alibaba` |
 
-(Filter for ASOS/JD Sports/Zalando/etc. NOT created — relying on user unsubscribing instead. If senders ignore the unsubscribe, add filters later.)
+Domain filters are particularly powerful — they catch all subdomain variants (e.g. AliExpress sends from many `*.aliexpress.com` subdomains; one filter handles them all).
 
-## Labeled but kept in inbox (no filter — new mail still visible)
+## Labeled but kept in inbox (no filter — new mail still hits inbox)
 
 | Sender / pattern | Label | Why |
 |---|---|---|
-| `noreply@dhlecommerce.nl` | `Shipping/DHL` | Shipping — want visible when expecting a package |
-| `*@mail.marktplaats.nl` | `Marktplaats` | Buyer messages — actual people wanting to give money |
-| `alerts@dcbbank.com` | `Banking/India` | DCB Bank transaction alerts — financial, legitimate account |
-| `donotreply@dcbbank.com` | `Banking/India` | DCB Bank statements/system messages |
-| `info@digital.axisbankmail.bank.in` | `Banking/India` | Axis Bank — financial, legitimate account |
+| `noreply@dhlecommerce.nl` | `Shipping/DHL` | Want visible when expecting packages |
+| `verzending-volgen@amazon.nl` | `Shipping/Amazon` | Same |
+| `notificaties@dpd.nl` | `Shipping/DPD` | Same |
+| `automail@bol.com` | `Shipping/bol` | Dutch e-commerce; order updates matter |
+| `*@mail.marktplaats.nl` | `Marktplaats` | Buyer messages — money in inbound |
+| `alerts@dcbbank.com` | `Banking/India` | DCB Bank transaction alerts |
+| `donotreply@dcbbank.com` | `Banking/India` | DCB Bank system messages |
+| `info@digital.axisbankmail.bank.in` | `Banking/India` | Axis Bank |
+| `no-reply@update.bunq.com` | `Banking/Bunq` | Dutch fintech transaction notifications |
+| `noreply@hello.klarna.com` | `Service/Klarna` | BNPL payment service |
+
+## Labeled, existing archived, no filter
+
+These had existing mail tagged + archived, but new mail still hits inbox:
+
+| Sender | Label |
+|---|---|
+| `noreply@nedm.asus.com` | `Service/ASUS` |
 
 ## Keep in inbox (no label, no action)
 
@@ -48,13 +89,13 @@ Total messages moved out of inbox: ~17,910.
 | `noreply@kpn.com` | Dutch telco — billing/service |
 | `no-reply@accounts.google.com` | Security alerts |
 
-## Manually unsubscribed (Adrian clicks "Unsubscribe" in Gmail UI)
+## Manually unsubscribed (Adrian clicks Unsubscribe in Gmail UI)
 
-These need a one-time human click on the Unsubscribe chip in any sample email. Existing already archived. Use Gmail's search to find one of each:
+Existing already archived. Find one example email per sender, click the Unsubscribe chip near the From line.
 
-- [ ] `jobalerts-noreply@linkedin.com` — LinkedIn jobs (312 archived)
+- [ ] `jobalerts-noreply@linkedin.com` — LinkedIn jobs (312)
 - [ ] `journeys@em.journeys.com` — Travel (22)
-- [ ] `support@shaperluv.com` — Fashion/clothing (53)
+- [ ] `support@shaperluv.com` — Fashion (53)
 - [ ] `owen@agentcartel.com` — AI newsletter (15)
 - [ ] `store-news@amazon.nl` — Amazon promos (51)
 - [ ] `hello@official.asos.com` — Fashion (65)
@@ -63,21 +104,36 @@ These need a one-time human click on the Unsubscribe chip in any sample email. E
 - [ ] `mail@mailer.hollandandbarrett.nl` — Health/supplements (61)
 - [ ] `news@mail.sovendus.com` — Deal aggregator (30)
 - [ ] `remind@notice.alibaba.com` — Promo reminders (9)
-- [ ] `happiness@moments.fnp.com` — FNP / Ferns N Petals marketing (35 archived)
-- [ ] `ae-best-message-notice20@newarrival.aliexpress.com` — AliExpress recommendations (8 archived)
+- [ ] `happiness@moments.fnp.com` — FNP / Ferns N Petals (35)
+- [ ] `ae-best-message-notice20@newarrival.aliexpress.com` — AliExpress recs (8)
+- [ ] `nate@aiautomationsociety.ai` — AI newsletter (8)
+- [ ] `Trip.com@newsletter.trip.com` — Travel (27)
+- [ ] `info@updates.wintwealth.com` — Wint Wealth newsletter (77)
+- [ ] `no-reply@accounts.bitly.com` — Bitly (5)
+- [ ] `voucher@appinx.sovendus.com` — Sovendus deals (20)
+- [ ] `in-marketing@member.timezonegames.com` — Timezone gaming (44)
+- [ ] `mail@depositphotos.com` — DepositPhotos (28)
+- [ ] `info@blackfridaynederland.nl` — Black Friday NL (7)
+- [ ] `kfc@em.kfc.ca` — KFC Canada (10)
+- [ ] `noreply@communication.basic-fit.com` — Basic-Fit gym (11)
+- [ ] `marketing@mrfillet.nl` — Mr. Fillet food (16)
+- [ ] `noreply-nl@onthatass.com` — ON THAT ASS (9)
+- [ ] `hello@chess.com` — Chess.com (6)
+- [ ] `noreply-in@email.decathlon.in` — Decathlon India (16)
 
-When Adrian completes an unsubscribe, change `[ ]` to `[x]` here.
+When Adrian completes an unsubscribe, change `[ ]` to `[x]`.
+
+Note: For senders covered by domain filters (AliExpress *, Alibaba *), unsubscribing is optional — the filter already auto-routes future mail.
 
 ## Investigate later (not blocking)
 
 - ~~DCB Bank — confirmed legitimate (Adrian has Indian banking accounts).~~ Resolved 2026-05-05.
 
-## Sender catalog (not yet decided)
+## Resuming the cleanup
 
-Senders we noticed but haven't classified. Walk these in next cleanup pass:
+To run another pass anytime:
+1. Open Claude Code in `/Users/adrian/projects/jarvis`
+2. Say "let's clean up Gmail more" or invoke the `cleanup-inbox` skill
+3. The skill, tool, OAuth, and rules persist — picks up cold
 
-- KPN — kept in inbox (above)
-- Daan via Marktplaats (38) — covered by Marktplaats label
-- Amazon.nl `verzending-volgen@amazon.nl` — shipping tracking (transactional)
-- Google `no-reply@accounts.google.com` — security alerts (kept in inbox)
-- Other long-tail senders (each <5/sample) — handle in P1 follow-up
+For specific operations: see `tools/gmail.py --help`.
