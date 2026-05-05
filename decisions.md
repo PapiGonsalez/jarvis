@@ -327,3 +327,37 @@ This applies to the timed event list, not to the pending mini-row.
 - Voltlabs Microsoft Calendar — `tools/outlook_cal.py` exists from P2 but voltlabs uses Google, not M365. If anything ever lives there, this stays a non-issue.
 
 **Open follow-up to surface during execution:** when the API endpoint shape is concrete, sanity-check that ICS feed events expose enough metadata to render inline-expand details (description, location). If `icalendar` parser doesn't surface those reliably, tile gracefully degrades: title + time only for ICS events, full detail for Google events.
+
+## 2026-05-05 — P6 Ideas tile
+
+Discussed and locked the gray areas for P6 before planning. Seven decisions across status taxonomy, row content, sort, edit power, interaction, type display, and frontmatter resilience.
+
+**Status taxonomy — D-P6-01:** Four lifecycle states: **active / next-up / paused / shipped**. Picked over the simpler 2- or 3-state variants because the "next-up" queue is a real distinction in Adrian's head (things he intends to do soon, but isn't actively doing yet). The current `ideas/jarvis-itself.md` will need its frontmatter checked — likely stays `active` for now. Tile renders one badge per state with a coherent dark-theme palette (active = green-ish, next-up = blue, paused = gray, shipped = muted).
+
+**Row content — D-P6-02:** Each row shows **title + status badge + next_action preview**. Most actionable surface: you see what the project is, where it is in its lifecycle, and the literal next step without expanding. `next_action` is truncated to one line; full body comes via inline expand.
+
+**Sort — D-P6-03:** Group by status (**active → next-up → paused → shipped**), `last_touched` descending within each group. Things being worked on float to the top; done stuff sinks. Cleanly mirrors how the Tasks tile groups by source.
+
+**Edit power — D-P6-04:** **Read-only for v1.** Tile is a window into the `ideas/` folder. Source-of-truth lives in markdown; Adrian edits in his editor. Lighter to ship and respects the "ideas mature in writing, not in clicks" instinct. Status changes from the tile are deferred (potential P6.1 if it bites).
+
+**Interaction — D-P6-05:** Row split-clickable, mirroring the calendar tile's pattern from P5. **Tap row → expands inline** to show the file's body (description, status notes). **Button on row → opens the file in GitHub web** (`https://github.com/PapiGonsalez/jarvis/blob/main/ideas/<file>.md`) in a new tab. GitHub's markdown rendering is the cleanest external view, especially on phone.
+
+**Type display — D-P6-06:** Small `· project` or `· exploration` chip after each title in muted color — symmetric with the calendar tile's `· source` chip. Two type values match the global definition in `CLAUDE.md`: project = building it, exploration = researching it.
+
+**Frontmatter resilience — D-P6-07:** Files with missing fields **render with sensible defaults**. Specifically: missing `status` → defaults to `active`. Missing `next_action` → row hides that line (just title + badges). Missing `last_touched` → falls back to file mtime. Missing `started` → falls back to file mtime. Missing `type` → defaults to `project`. A bare `ideas/<slug>.md` with just an H1 title still renders. Lowest friction to capture an idea fast and clean it up later.
+
+**Claude's discretion (not user-facing decisions):**
+- Exact endpoint shape on `apps/api/` — likely `GET /ideas/list` returning `{ groups: [{status, ideas[]}, ...] }` (groups already pre-sorted by the server). Or a flat list with the client doing the grouping; pick whichever keeps the tile cleanest.
+- Internal Pydantic model: `id` (file slug, derived from filename), `title`, `type`, `status`, `started`, `last_touched`, `next_action`, `description` (body up to first H2), `status_notes` (the H2 "Status notes" section, raw markdown).
+- Refresh strategy — mirrors Tasks/Calendar: refresh-on-tab-focus + manual refresh button. Adrian edits a file in editor, comes back to the tab, sees update.
+- GitHub web URL — derived once from `git remote get-url origin` at build time (or hardcoded after verification). The remote is `PapiGonsalez/jarvis`.
+- Loading skeleton, empty state copy ("No ideas yet" + how-to-add hint), error state with retry — mirror calendar tile.
+- Status badge palette — picked to harmonize with the existing dark theme; not load-bearing.
+- Frontmatter parser library — try `python-frontmatter` (small, well-maintained). Add to `requirements.txt`.
+
+**Deferred ideas (not P6):**
+- Status changes from the tile (D-P6-04 says read-only for v1). Revisit if Adrian finds himself opening files just to flip `status: active` to `status: shipped`.
+- Add-new-idea button on the tile. Same — defer until the friction of "open editor, create file, write frontmatter" actually bites.
+- Nested ideas (an idea linking to sub-ideas). Out of scope; flat folder.
+- Search / filter / tag UI. The folder is one digit's worth of files for the foreseeable future.
+- Ideas-graphify integration (the knowledge graph being built up by daily use). Visualization layer is far down the road.
