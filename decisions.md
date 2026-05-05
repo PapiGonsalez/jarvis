@@ -282,3 +282,48 @@ Discussed and locked the gray areas for P4 before planning. Ten decisions across
 - TUI/web write coordination (what if both are mutating the JSONL at the same instant). Last-write-wins is acceptable for a single-user system; revisit only if it bites.
 
 **Rule landed during this discussion (saved to global memory + this repo's CLAUDE.md):** when asking Adrian for an opinion on a technical choice, present each option as the outcome he'll experience — not the underlying mechanism. No "Server Component / sidecar / SSE" framing in questions. See `CLAUDE.md` and `~/.claude/projects/-Users-adrian/memory/feedback_outcomes_not_jargon.md`.
+
+## 2026-05-05 — P5 Calendar tile
+
+Discussed and locked the gray areas for P5 before planning. Eight decisions across window, sources, interaction, status filters, and refresh — all phrased as outcomes Adrian will see on the tile.
+
+**Window — D-P5-01:** Tile shows **today + tomorrow** (~36 hour rolling window). Picked over today-only and 7-day. Won't go blank after dinner; tomorrow morning's stuff is visible the night before, useful for prep. Boundary: from "now" through end-of-tomorrow in Europe/Bucharest.
+
+**Sources — D-P5-02:** All three calendars roll in.
+- **personal** = personal Google (`adriangilbert26@gmail.com`) via `tools/gcal.py --account personal`.
+- **work** = voltlabs Google (`adrian@voltlabs.eu`) via `tools/gcal.py --account work`. Empty by design today; included so it works the day Adrian schedules anything.
+- **uni** = utwente via the registered ICS feed in `tools/ics_cal.py` (no Google token for the `uni` entry — it was decided in P2 to read utwente as ICS, not OAuth).
+
+**Interaction — D-P5-03:** Row split-clickable, mirroring P4. **Tap the row → expands inline** to show description, attendees, location, link. **Button on the row → opens the event in Google Calendar / OWA in a new tab** (so source-of-truth is one click away). One row, two click targets.
+
+**All-day events — D-P5-04:** Bucketed at the top in their own mini-list ("All day" header), then timed events below in chronological order. Matches Google Calendar's day view rendering. Critical for utwente exam weeks / school holiday blocks — would be lost if mixed in.
+
+**Source identity — D-P5-05:** Small text label after each event title — quiet `· uni` / `· work` / `· personal` chip in muted color. Picked over color-dot (less intrusive) and no-marker (titles can be ambiguous). Same vocabulary as the gcal.py / ics_cal.py source naming so debugging stays consistent.
+
+**Pending invites — D-P5-06:** Mini-row at the top of the tile: **"N awaiting response — tap to expand"**. Tap reveals the invite list inline. Pulls invites out of the timeline so they're glanceable as a queue. `gcal.py list-pending` already returns this shape (events with `attendees[].self.responseStatus = needsAction`).
+
+**Response-status filter — D-P5-07:**
+- **Declined** = hidden from view.
+- **Tentative** = visible but dimmed (lower opacity / muted text).
+- **Accepted / no-attendees** = full strength.
+This applies to the timed event list, not to the pending mini-row.
+
+**Refresh — D-P5-08:** Same shape as the Tasks tile from P4. **Refresh on tab focus** (`visibilitychange`) + small **manual refresh button** in the tile header. No background polling. Calendar changes less than tasks, but the symmetry is more valuable than the marginal optimization.
+
+**Claude's discretion (not user-facing decisions):**
+- Exact endpoint shape on `apps/api/` — likely `GET /calendar/upcoming` returning `{ window, all_day, timed, pending }` blocks (or a single sorted list with type tags; pick whichever keeps the client cleaner).
+- Internal Pydantic model for an event — at minimum: `id`, `source` (personal/work/uni), `title`, `start`, `end`, `all_day`, `status` (accepted/tentative/declined/needsAction), `link`, optional `description`, `location`, `attendees[]`.
+- Time format on the tile — 24-hour, Europe/Bucharest. Today's events use just `HH:MM`; tomorrow's prefixed with `Tmrw HH:MM`.
+- Loading skeleton design (mirrors P4's `TasksTileSkeleton` structure).
+- Error state copy — inline "Couldn't load calendar" + retry button per source if one fails (don't blank the whole tile if one source is down).
+- Per-source error handling — if Google times out but ICS works (or vice versa), show what we have + a sub-message ("uni events unavailable").
+- Whether the API endpoint fans out to all three sources sequentially or in parallel (parallel; we control all three callers).
+
+**Deferred ideas (not P5):**
+- Writing back to calendars from the tile (accept/decline invites, edit events). Read-only for v1.
+- Push notifications for upcoming events. Tile is glance-only; phone calendar app already handles reminders.
+- Conflict detection ("you have two things at 14:00"). Visible from the list but no special highlight in v1.
+- Cross-account dedup (same event invited to two of your accounts). Real but rare; defer until it bites.
+- Voltlabs Microsoft Calendar — `tools/outlook_cal.py` exists from P2 but voltlabs uses Google, not M365. If anything ever lives there, this stays a non-issue.
+
+**Open follow-up to surface during execution:** when the API endpoint shape is concrete, sanity-check that ICS feed events expose enough metadata to render inline-expand details (description, location). If `icalendar` parser doesn't surface those reliably, tile gracefully degrades: title + time only for ICS events, full detail for Google events.
