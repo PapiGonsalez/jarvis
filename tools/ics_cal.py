@@ -23,6 +23,7 @@ import sys
 from datetime import datetime, timedelta, timezone, date
 from pathlib import Path
 
+import recurring_ical_events
 import requests
 from icalendar import Calendar
 
@@ -152,6 +153,60 @@ def cmd_list_events(args):
         title = str(c.get("SUMMARY", "(no title)"))
         recurrence = " [recurring]" if c.get("RRULE") else ""
         print(f"  {s.strftime('%Y-%m-%d %H:%M')}  {title[:55]:<55}{recurrence}")
+
+
+def get_upcoming(feed_name: str, t_min: datetime, t_max: datetime) -> list[dict]:
+    """Return normalized upcoming events from a registered ICS feed in [t_min, t_max).
+
+    Recurring series are expanded into actual instances within the window
+    (uses recurring_ical_events). ICS feeds are read-only, so every event
+    comes back with status="accepted". Used by apps/api/ — keep this
+    signature stable or update the API endpoint.
+    """
+    feeds = load_feeds()
+    if feed_name not in feeds:
+        return []
+    cal = fetch_ics(feeds[feed_name])
+    out: list[dict] = []
+    for c in recurring_ical_events.of(cal).between(t_min, t_max):
+        s = c.get("DTSTART")
+        if s is None:
+            continue
+        out.append(_normalize_ics_event(c, feed_name, s.dt))
+    return out
+
+
+def _normalize_ics_event(c, feed_name: str, sd_raw) -> dict:
+    e = c.get("DTEND")
+    ed_raw = e.dt if e is not None else sd_raw
+    all_day = isinstance(sd_raw, date) and not isinstance(sd_raw, datetime)
+
+    def _to_iso(d):
+        if isinstance(d, datetime):
+            return (d if d.tzinfo else d.replace(tzinfo=timezone.utc)).isoformat()
+        if isinstance(d, date):
+            return d.isoformat()
+        return None
+
+    def _str_or_none(prop: str):
+        v = c.get(prop)
+        return str(v) if v else None
+
+    uid = _str_or_none("UID") or ""
+    start_iso = _to_iso(sd_raw) or ""
+    return {
+        "source": feed_name,
+        "id": f"{uid}@{start_iso}" if uid else start_iso,
+        "title": _str_or_none("SUMMARY") or "(no title)",
+        "start": start_iso or None,
+        "end": _to_iso(ed_raw),
+        "all_day": all_day,
+        "status": "accepted",
+        "link": _str_or_none("URL"),
+        "description": _str_or_none("DESCRIPTION"),
+        "location": _str_or_none("LOCATION"),
+        "organizer": None,
+    }
 
 
 def main():

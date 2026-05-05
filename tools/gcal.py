@@ -305,6 +305,64 @@ def cmd_delete_event(args):
     print(f"Deleted.")
 
 
+def get_upcoming(account: str, t_min: datetime, t_max: datetime) -> list[dict]:
+    """Return normalized upcoming events from a Google account in [t_min, t_max).
+
+    Iterates all subscribed calendars; recurring events expanded to instances.
+    Used by apps/api/ — keep this signature stable or update the API endpoint.
+    """
+    svc = get_service(account)
+    cals = svc.calendarList().list().execute().get("items", [])
+    events: list[dict] = []
+    for c in cals:
+        try:
+            resp = svc.events().list(
+                calendarId=c["id"],
+                timeMin=t_min.isoformat(),
+                timeMax=t_max.isoformat(),
+                singleEvents=True,
+                orderBy="startTime",
+                maxResults=250,
+            ).execute()
+        except HttpError:
+            continue
+        for e in resp.get("items", []):
+            events.append(_normalize_gcal_event(e, account))
+    return events
+
+
+def _normalize_gcal_event(e: dict, account: str) -> dict:
+    s = e.get("start") or {}
+    en = e.get("end") or {}
+    all_day = "date" in s and "dateTime" not in s
+    start = s.get("dateTime") or s.get("date")
+    end = en.get("dateTime") or en.get("date")
+
+    status = "accepted"
+    for a in e.get("attendees") or []:
+        if a.get("self"):
+            status = a.get("responseStatus", "accepted")
+            break
+
+    org = e.get("organizer") or {}
+    return {
+        "source": account,
+        "id": e.get("id", ""),
+        "title": e.get("summary") or "(no title)",
+        "start": start,
+        "end": end,
+        "all_day": all_day,
+        "status": status,
+        "link": e.get("htmlLink"),
+        "description": e.get("description"),
+        "location": e.get("location"),
+        "organizer": (
+            {"email": org.get("email"), "name": org.get("displayName")}
+            if org else None
+        ),
+    }
+
+
 def main():
     p = argparse.ArgumentParser(
         description=__doc__,
