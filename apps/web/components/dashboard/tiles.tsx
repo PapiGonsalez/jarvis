@@ -40,18 +40,6 @@ function TileShell({ title, badge, icon, empty, className }: TileShellProps) {
   );
 }
 
-export function TasksTile() {
-  return (
-    <TileShell
-      title="Tasks"
-      badge="P4"
-      icon={<TaskIcon />}
-      empty="Today's extracted tasks will land here. Wire-up comes in P4."
-      className="lg:min-h-[336px]"
-    />
-  );
-}
-
 export function CalendarTile() {
   return (
     <TileShell
@@ -108,15 +96,6 @@ export function PinnedNotesTile() {
 }
 
 // ── Icons (inline SVG, 16px, currentColor) ───────────────────────────────
-
-function TaskIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="3" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  );
-}
 
 function CalendarIcon() {
   return (

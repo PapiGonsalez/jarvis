@@ -1,11 +1,11 @@
 import {
-  TasksTile,
   IdeasTile,
   CalendarTile,
   TokensTile,
   ScratchpadTile,
   PinnedNotesTile,
 } from "./tiles";
+import { TasksTile } from "./tasks-tile";
 
 export function BentoGrid() {
   return (
