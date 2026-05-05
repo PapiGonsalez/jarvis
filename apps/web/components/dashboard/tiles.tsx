@@ -40,17 +40,6 @@ function TileShell({ title, badge, icon, empty, className }: TileShellProps) {
   );
 }
 
-export function CalendarTile() {
-  return (
-    <TileShell
-      title="Calendar"
-      badge="P5"
-      icon={<CalendarIcon />}
-      empty="Upcoming events from Google Calendar + utwente ICS feed."
-    />
-  );
-}
-
 export function IdeasTile() {
   return (
     <TileShell
@@ -96,15 +85,6 @@ export function PinnedNotesTile() {
 }
 
 // ── Icons (inline SVG, 16px, currentColor) ───────────────────────────────
-
-function CalendarIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="3" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  );
-}
 
 function IdeaIcon() {
   return (
