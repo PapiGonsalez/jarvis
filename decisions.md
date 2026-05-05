@@ -245,3 +245,40 @@ Adrian explicitly required: "this has to be free... only person using it is me, 
 - **LLM API (future, deferred to P10):** options when the time comes — Claude Code (already paying for it), Anthropic API direct (pay-per-use, typically $0–5/mo personal), local Ollama (free), local Whisper for voice (free). Decided per-feature when we wire chat/voice; not part of the stack itself.
 
 **Trade-off accepted:** if Jarvis ever wants to reach beyond Adrian's tailnet (share with someone, public demo), we'd need to add a domain + hosting + auth — but that's a "if it ever ships externally" decision, deliberately out of scope.
+
+## 2026-05-05 — P4 Tasks tile + apps/api/ helper program
+
+Discussed and locked the gray areas for P4 before planning. Ten decisions across architecture, mark-done UX, freshness, and display.
+
+**Architecture — D-P4-01: Stand up the FastAPI sidecar at `apps/api/` now.** Tile reads from it and writes to it; future tiles (P5 calendar, P6 ideas, P7 tokens) inherit the same pattern. Adrian explicitly picked the upfront infrastructure cost over the "hybrid: Node fs reads + Server Action shelling Python" option, in exchange for a single clean contract for every future tile. Pays off when calendar work lands (heavy Python: OAuth, ICS parsing, multi-account merging) — that work flows through the same helper, not another ad-hoc shape.
+
+**Tick-off UX:**
+- **D-P4-02:** Checkbox per row. Works the same on phone and laptop. Mirrors classic todo-list mental model + the TUI's `d` key.
+- **D-P4-03:** Done tasks disappear by default; small "show done" toggle reveals them. Same default as the TUI's `s` key.
+- **D-P4-04:** Tap the task title → opens the source email in a new tab. Mirrors the TUI's `o` key. Row is split-clickable: checkbox = tick off, title = open email.
+
+**Freshness — D-P4-05:** Refresh on tab focus + small manual refresh button. No background polling, no push, no fs watcher. Adrian uses the dashboard alongside the TUI; coming back to the tab is the natural moment to re-pull. No battery drain on phone, no permanent open connection.
+
+**Display:**
+- **D-P4-06:** Group by source account (`personal`, `voltlabs`, …) with priority desc within each section. Matches the TUI grouping. Section headers eat space on small task counts but pay off on busier days.
+- **D-P4-07:** Each row shows priority indicator + due date when present. Account badge skipped (redundant with grouping). Extracted-at time skipped (too noisy for a glance tile).
+- **D-P4-08:** Long titles truncate to one line with `…`. Tap to open the email if you need the full context. Keeps every row the same height.
+
+**States:**
+- **D-P4-09:** Empty state — friendly "No tasks for today yet" line + a button that opens the existing skill-button modal for `extract-tasks` (terminal command + Copy). Same modal already used by the four skill buttons above the chat bar.
+- **D-P4-10:** Error state — subtle inline message ("Couldn't load tasks") + retry button. Tile keeps its shape so the dashboard doesn't shift.
+
+**Claude's discretion (not user-facing decisions):**
+- Exact endpoint shape on `apps/api/` (likely `GET /tasks/today`, `POST /tasks/{id}/done`).
+- Exact priority indicator visual (the TUI uses ▲ red / ● yellow / ▽ blue; tile will pick a coherent shadcn-friendly equivalent).
+- Loading skeleton design.
+- Port the helper program runs on (likely `:8001`, since web is `:3000`).
+- How `apps/api/` is started/stopped alongside `next dev` (likely a small `make` target or a `concurrently` script in `package.json`).
+- Whether the helper program reuses the existing `.venv` at the repo root, or gets its own.
+
+**Deferred ideas (not P4):**
+- Push-on-file-change refresh (option C in the freshness discussion). Considered, rejected for P4 — too much plumbing for a personal local-only tool. Revisit if the focus-refresh approach feels stale in practice.
+- Mobile-specific gestures (swipe to tick off, etc.). Tile's checkbox is the universal interaction; gestures are not on the table for v1.
+- TUI/web write coordination (what if both are mutating the JSONL at the same instant). Last-write-wins is acceptable for a single-user system; revisit only if it bites.
+
+**Rule landed during this discussion (saved to global memory + this repo's CLAUDE.md):** when asking Adrian for an opinion on a technical choice, present each option as the outcome he'll experience — not the underlying mechanism. No "Server Component / sidecar / SSE" framing in questions. See `CLAUDE.md` and `~/.claude/projects/-Users-adrian/memory/feedback_outcomes_not_jargon.md`.
