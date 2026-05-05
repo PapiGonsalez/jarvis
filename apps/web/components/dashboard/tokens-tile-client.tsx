@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -109,7 +111,39 @@ function ProjectBar({
 }
 
 export function TokensTileClient({ initial }: { initial: Initial }) {
-  if ("error" in initial) {
+  const [data, setData] = useState<Initial>(initial);
+  const [busy, startTransition] = useTransition();
+
+  async function fetchData() {
+    try {
+      const r = await fetch(`/api/jarvis/tokens/summary?days=7`, {
+        cache: "no-store",
+      });
+      if (!r.ok) {
+        setData({ error: `HTTP ${r.status}` });
+        return;
+      }
+      setData(await r.json());
+    } catch (e) {
+      setData({ error: e instanceof Error ? e.message : "fetch failed" });
+    }
+  }
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        startTransition(() => fetchData());
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  function onRefresh() {
+    startTransition(() => fetchData());
+  }
+
+  if ("error" in data) {
     return (
       <Card
         data-testid="tokens-tile"
@@ -122,17 +156,29 @@ export function TokensTileClient({ initial }: { initial: Initial }) {
             </span>
             <CardTitle>Tokens</CardTitle>
           </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={busy}
+            aria-label="refresh"
+            title="Refresh"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshIcon spinning={busy} />
+          </button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col items-start gap-2">
           <p className="text-xs text-muted-foreground">
-            Couldn’t load tokens ({initial.error}).
+            Couldn’t load tokens ({data.error}).
           </p>
+          <Button size="sm" variant="secondary" onClick={onRefresh} disabled={busy}>
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  const data = initial;
   const max = data.projects.reduce((m, p) => Math.max(m, p.tokens), 0);
   const empty = data.total_tokens === 0;
 
@@ -148,9 +194,21 @@ export function TokensTileClient({ initial }: { initial: Initial }) {
           </span>
           <CardTitle>Tokens</CardTitle>
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-          {data.window.days}d
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+            {data.window.days}d
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={busy}
+            aria-label="refresh"
+            title="Refresh"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshIcon spinning={busy} />
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {empty ? (
@@ -197,6 +255,25 @@ function TokenIcon() {
     >
       <circle cx="12" cy="12" r="9" />
       <path d="M12 7v10M9 9.5h4.5a2.5 2.5 0 0 1 0 5H9" />
+    </svg>
+  );
+}
+
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(spinning && "animate-spin")}
+    >
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
     </svg>
   );
 }
