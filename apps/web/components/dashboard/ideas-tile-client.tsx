@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -140,7 +141,42 @@ function IdeaRow({ idea, expanded, onToggle }: RowProps) {
 }
 
 export function IdeasTileClient({ initial }: { initial: Initial }) {
-  if ("error" in initial) {
+  const [data, setData] = useState<Initial>(initial);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [busy, startTransition] = useTransition();
+
+  async function fetchData() {
+    try {
+      const r = await fetch(`/api/jarvis/ideas/list`, { cache: "no-store" });
+      if (!r.ok) {
+        setData({ error: `HTTP ${r.status}` });
+        return;
+      }
+      setData(await r.json());
+    } catch (e) {
+      setData({ error: e instanceof Error ? e.message : "fetch failed" });
+    }
+  }
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        startTransition(() => fetchData());
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
+  function onRefresh() {
+    startTransition(() => fetchData());
+  }
+
+  function toggle(id: string) {
+    setExpandedId((cur) => (cur === id ? null : id));
+  }
+
+  if ("error" in data) {
     return (
       <Card
         data-testid="ideas-tile"
@@ -153,24 +189,30 @@ export function IdeasTileClient({ initial }: { initial: Initial }) {
             </span>
             <CardTitle>Ideas</CardTitle>
           </div>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={busy}
+            aria-label="refresh"
+            title="Refresh"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshIcon spinning={busy} />
+          </button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col items-start gap-2">
           <p className="text-xs text-muted-foreground">
-            Couldn’t load ideas ({initial.error}).
+            Couldn’t load ideas ({data.error}).
           </p>
+          <Button size="sm" variant="secondary" onClick={onRefresh} disabled={busy}>
+            Retry
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  const data = initial;
   const total = data.ideas.length;
-
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  function toggle(id: string) {
-    setExpandedId((cur) => (cur === id ? null : id));
-  }
 
   return (
     <Card
@@ -184,9 +226,21 @@ export function IdeasTileClient({ initial }: { initial: Initial }) {
           </span>
           <CardTitle>Ideas</CardTitle>
         </div>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
-          {total}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+            {total}
+          </span>
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={busy}
+            aria-label="refresh"
+            title="Refresh"
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshIcon spinning={busy} />
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="flex-1">
         {total === 0 ? (
@@ -240,6 +294,25 @@ function ExternalLinkIcon() {
       strokeLinejoin="round"
     >
       <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+    </svg>
+  );
+}
+
+function RefreshIcon({ spinning }: { spinning?: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={cn(spinning && "animate-spin")}
+    >
+      <path d="M21 12a9 9 0 0 1-9 9 9 9 0 0 1-7.5-4M3 12a9 9 0 0 1 9-9 9 9 0 0 1 7.5 4" />
+      <path d="M21 3v5h-5M3 21v-5h5" />
     </svg>
   );
 }
