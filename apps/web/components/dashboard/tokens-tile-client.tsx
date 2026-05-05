@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 export type TokensProject = {
   label: string;
@@ -36,6 +37,49 @@ const COMPACT = new Intl.NumberFormat("en-US", {
 
 function formatTokens(n: number): string {
   return COMPACT.format(n);
+}
+
+function DeltaPill({ pct, days }: { pct: number | null; days: number }) {
+  if (pct === null) return null;
+  const positive = pct >= 0;
+  const arrow = positive ? "▲" : "▼";
+  const sign = positive ? "+" : "";
+  return (
+    <span
+      className={cn(
+        "text-[10px] tabular-nums",
+        positive ? "text-amber-400" : "text-muted-foreground"
+      )}
+      aria-label={`${positive ? "up" : "down"} ${Math.abs(pct).toFixed(1)} percent vs prior ${days} days`}
+    >
+      {arrow} {sign}
+      {pct.toFixed(1)}% vs prior {days}d
+    </span>
+  );
+}
+
+function Sparkline({ daily }: { daily: TokensDaily[] }) {
+  const max = Math.max(...daily.map((d) => d.tokens), 1);
+  return (
+    <div
+      className="flex h-5 items-end gap-0.5"
+      role="img"
+      aria-label={`${daily.length}-day token usage trend`}
+      data-testid="tokens-sparkline"
+    >
+      {daily.map((d) => {
+        const pct = d.tokens === 0 ? 0 : Math.max((d.tokens / max) * 100, 6);
+        return (
+          <div
+            key={d.date}
+            className="w-1 rounded-sm bg-muted-foreground/50"
+            style={{ height: `${pct}%` }}
+            title={`${d.date}: ${formatTokens(d.tokens)}`}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 function ProjectBar({
@@ -115,12 +159,18 @@ export function TokensTileClient({ initial }: { initial: Initial }) {
           </p>
         ) : (
           <>
-            <p className="text-xl font-semibold tabular-nums">
-              {formatTokens(data.total_tokens)}{" "}
-              <span className="text-xs font-normal text-muted-foreground">
-                tokens this week
-              </span>
-            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-xl font-semibold tabular-nums">
+                {formatTokens(data.total_tokens)}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  tokens this week
+                </span>
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <DeltaPill pct={data.delta_pct} days={data.window.days} />
+                <Sparkline daily={data.daily} />
+              </div>
+            </div>
             <ul className="flex flex-col">
               {data.projects.map((p) => (
                 <ProjectBar key={p.label} project={p} max={max} />
