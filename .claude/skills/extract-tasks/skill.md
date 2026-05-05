@@ -98,13 +98,14 @@ For each `task`-classified email, generate one JSONL record. Schema:
   "id":           "task_<8-char hash of message_id + task text>",
   "extracted_at": "<ISO timestamp, current run>",
   "source": {
-    "account":       "personal" | "work",
-    "account_email": "<from the source JSONL record>",
+    "account":       "personal" | "work" | "uni" | "agroworld",
+    "account_email": "<from the source record's account_email>",
     "message_id":    "<from the source>",
     "from":          "<From header>",
     "subject":       "<Subject header>",
     "date":          "<Date header>",
-    "gmail_url":     "<from the source>"
+    "gmail_url":     "<from the source>",
+    "labels":        ["<from the source's labels[], optional>"]
   },
   "task":       "<one-line, action-verb-led description>",
   "due":        "YYYY-MM-DD" | null,
@@ -114,6 +115,10 @@ For each `task`-classified email, generate one JSONL record. Schema:
   "status":     "open"
 }
 ```
+
+**`source.account` rule:** copy `inferred_account` from the source record (the field added by `tools/gmail.py fetch-recent`). It's already resolved: forwarding labels (`Forwarded/UTwente` → `uni`, `Forwarded/Agroworld` → `agroworld`) take precedence over the literal Gmail account. This puts utwente/agroworld tasks in their own group on the TUI and Tasks tile instead of lumped under `personal`.
+
+**`source.labels`:** copy the source record's `labels` array verbatim. Useful for debugging classification + future filtering. Optional but recommended.
 
 **Hash the id** so re-runs that re-extract the same task don't create duplicate records. Use `python3 -c "import hashlib; print(hashlib.md5(b'<msg-id>::<task>').hexdigest()[:8])"` if needed.
 

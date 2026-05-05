@@ -49,6 +49,27 @@ ACCOUNTS = {
     "work":     "gmail-token-work.json",       # adrian@voltlabs.eu
 }
 
+# Forwarded mail arrives in `personal` (the inbox of record), but the task is
+# really from the upstream school/company. Labels set by the Gmail filters
+# created in P2.1 ("to:" → label) tell us which. Keep this list aligned with
+# those filters: Forwarded/UTwente (purple), Forwarded/Agroworld (teal).
+FORWARDING_LABEL_TO_ACCOUNT = {
+    "Forwarded/UTwente":   "uni",
+    "Forwarded/Agroworld": "agroworld",
+}
+
+
+def derive_inferred_account(label_names: list[str], fallback: str) -> str:
+    """Inferred origin account based on forwarding labels.
+
+    Returns the upstream account ("uni", "agroworld") if any forwarding label
+    on the message matches; otherwise returns the literal Gmail account.
+    """
+    for ln in label_names:
+        if ln in FORWARDING_LABEL_TO_ACCOUNT:
+            return FORWARDING_LABEL_TO_ACCOUNT[ln]
+    return fallback
+
 
 def token_path(account: str) -> Path:
     if account not in ACCOUNTS:
@@ -234,6 +255,13 @@ def cmd_fetch_recent(args):
     profile = svc.users().getProfile(userId="me").execute()
     email_addr = profile["emailAddress"]
 
+    # Build label id -> name index once, so per-message records carry readable
+    # label names (e.g., "Forwarded/UTwente") instead of opaque ids ("Label_42").
+    label_index: dict[str, str] = {
+        l["id"]: l["name"]
+        for l in svc.users().labels().list(userId="me").execute().get("labels", [])
+    }
+
     query_parts = [args.query] if args.query else ["in:inbox"]
     if args.days:
         query_parts.append(f"newer_than:{args.days}d")
@@ -272,18 +300,21 @@ def cmd_fetch_recent(args):
             body = decode_body(msg)
             if args.body_limit and len(body) > args.body_limit:
                 body = body[:args.body_limit] + f"\n…[truncated at {args.body_limit} chars]"
+            label_ids = msg.get("labelIds", [])
+            label_names = [label_index.get(lid, lid) for lid in label_ids]
             record = {
                 "message_id": mid_header,
                 "thread_id": msg.get("threadId"),
                 "account": args.account,
                 "account_email": email_addr,
+                "inferred_account": derive_inferred_account(label_names, args.account),
                 "from": header(msg, "From"),
                 "to": header(msg, "To"),
                 "subject": header(msg, "Subject"),
                 "date": header(msg, "Date"),
                 "snippet": msg.get("snippet", ""),
                 "body": body,
-                "labels": msg.get("labelIds", []),
+                "labels": label_names,
                 "gmail_url": f"https://mail.google.com/mail/?authuser={email_addr}#all/{msg.get('threadId')}",
             }
             out_f.write(json.dumps(record, ensure_ascii=False) + "\n")
