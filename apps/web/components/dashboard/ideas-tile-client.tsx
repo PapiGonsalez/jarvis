@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -55,21 +56,85 @@ function TypeChip({ type }: { type: string }) {
   );
 }
 
-function IdeaRow({ idea }: { idea: Idea }) {
+function ExternalLinkButton({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      aria-label={label}
+      title={label}
+      className="shrink-0 rounded p-1 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <ExternalLinkIcon />
+    </a>
+  );
+}
+
+function ExpandedDetail({ idea }: { idea: Idea }) {
+  if (!idea.description && !idea.status_notes) {
+    return (
+      <p className="px-1 pb-2 text-[11px] italic text-muted-foreground/70">
+        No details yet.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2 px-1 pb-2 text-[11px] text-muted-foreground">
+      {idea.description ? (
+        <p className="whitespace-pre-wrap leading-relaxed">{idea.description}</p>
+      ) : null}
+      {idea.status_notes ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground/60">
+            Recent
+          </p>
+          <p className="whitespace-pre-wrap leading-relaxed">
+            {idea.status_notes}
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type RowProps = {
+  idea: Idea;
+  expanded: boolean;
+  onToggle: () => void;
+};
+
+function IdeaRow({ idea, expanded, onToggle }: RowProps) {
   const dimmed = idea.status === "shipped";
   return (
-    <li className={cn("flex flex-col gap-0.5 py-1.5", dimmed && "opacity-60")}>
-      <div className="flex items-center gap-2">
-        <StatusBadge status={idea.status} />
-        <span className="min-w-0 flex-1 truncate text-sm">{idea.title}</span>
-        <TypeChip type={idea.type} />
-      </div>
-      {idea.next_action ? (
-        <p className="truncate text-[11px] text-muted-foreground">
-          <span className="text-muted-foreground/60">Next:</span>{" "}
-          {idea.next_action}
-        </p>
-      ) : null}
+    <li className={cn(dimmed && "opacity-60")}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        aria-label={`${idea.title} — ${expanded ? "collapse" : "expand"}`}
+        className="flex w-full flex-col gap-0.5 py-1.5 text-left transition-colors hover:bg-muted/40"
+      >
+        <div className="flex items-center gap-2">
+          <StatusBadge status={idea.status} />
+          <span className="min-w-0 flex-1 truncate text-sm">{idea.title}</span>
+          <TypeChip type={idea.type} />
+          {idea.link ? (
+            <ExternalLinkButton
+              href={idea.link}
+              label={`Open ${idea.title} on GitHub`}
+            />
+          ) : null}
+        </div>
+        {idea.next_action ? (
+          <p className="truncate text-[11px] text-muted-foreground">
+            <span className="text-muted-foreground/60">Next:</span>{" "}
+            {idea.next_action}
+          </p>
+        ) : null}
+      </button>
+      {expanded ? <ExpandedDetail idea={idea} /> : null}
     </li>
   );
 }
@@ -101,6 +166,12 @@ export function IdeasTileClient({ initial }: { initial: Initial }) {
   const data = initial;
   const total = data.ideas.length;
 
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function toggle(id: string) {
+    setExpandedId((cur) => (cur === id ? null : id));
+  }
+
   return (
     <Card
       data-testid="ideas-tile"
@@ -125,7 +196,12 @@ export function IdeasTileClient({ initial }: { initial: Initial }) {
         ) : (
           <ul className="flex flex-col divide-y divide-foreground/5">
             {data.ideas.map((i) => (
-              <IdeaRow key={i.id} idea={i} />
+              <IdeaRow
+                key={i.id}
+                idea={i}
+                expanded={expandedId === i.id}
+                onToggle={() => toggle(i.id)}
+              />
             ))}
           </ul>
         )}
@@ -147,6 +223,23 @@ function IdeaIcon() {
       strokeLinejoin="round"
     >
       <path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.73c.6.5 1 1.27 1 2.07V18h6v-1.2c0-.8.4-1.57 1-2.07A7 7 0 0 0 12 2Z" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon() {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
     </svg>
   );
 }
