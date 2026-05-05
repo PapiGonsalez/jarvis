@@ -11,7 +11,7 @@ next_action: |
 
 Personal AI OS — daily ops + ideas tracker + dashboard with chat + skill buttons + token tracking. Knowledge graph builds up as a side effect of daily use.
 
-This file exists so Jarvis-the-project shows up on the future "ideas in progress" tile when that's wired (P5). Meta but useful — it dogfoods the idea-tracking format on day one.
+This file exists so Jarvis-the-project shows up on the Ideas tile (wired in P6). Meta but useful — it dogfoods the idea-tracking format on day one.
 
 See `../tracker.md` for the build phase, `../decisions.md` for choices.
 
