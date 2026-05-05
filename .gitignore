@@ -26,6 +26,11 @@ venv/
 # Node
 node_modules/
 
+# Playwright
+test-results/
+playwright-report/
+.playwright-cache/
+
 # Local-only run/observability data (planned)
 journal/runs/*.jsonl
 .local/

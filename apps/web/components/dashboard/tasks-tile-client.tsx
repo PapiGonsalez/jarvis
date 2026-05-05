@@ -224,6 +224,7 @@ export function TasksTileClient({ initial }: { initial: Initial }) {
             type="button"
             onClick={onShowDone}
             aria-pressed={showDone}
+            aria-label={showDone ? "Hide done" : "Show done"}
             title={showDone ? "Hide done" : "Show done"}
             className={cn(
               "rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
