@@ -82,7 +82,10 @@ test.describe("TasksTile", () => {
     // Toggle to open via api directly (simulates external mutation, e.g. TUI).
     await fetch(`${API}/tasks/${TASK_ID}/done`, { method: "POST" });
 
-    await page.getByRole("button", { name: /^refresh$/i }).click();
+    await page
+      .getByTestId("tasks-tile")
+      .getByRole("button", { name: /^refresh$/i })
+      .click();
     await expect(page.getByText(TASK_TITLE)).toBeVisible();
   });
 });

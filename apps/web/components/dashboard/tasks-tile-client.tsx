@@ -208,7 +208,10 @@ export function TasksTileClient({ initial }: { initial: Initial }) {
   const total = isError ? 0 : data.total;
 
   return (
-    <Card className="group/tile relative h-full bg-card/60 backdrop-blur-sm transition-colors hover:bg-card/80 lg:min-h-[336px]">
+    <Card
+      data-testid="tasks-tile"
+      className="group/tile relative h-full bg-card/60 backdrop-blur-sm transition-colors hover:bg-card/80 lg:min-h-[336px]"
+    >
       <CardHeader className="flex-row items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground transition-colors group-hover/tile:text-foreground">
