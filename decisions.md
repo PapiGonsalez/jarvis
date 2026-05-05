@@ -189,3 +189,17 @@ Initial fetch-recent default excluded Promotions+Social+Updates. After first smo
 But the classifier itself stays strict on what becomes a task. Specifically: support-ticket back-and-forth (GitHub support, zendesk-style threads) classifies as `fyi`/skip even when the support agent asks for info, because Adrian tracks active support threads in the source system. Surfacing them daily is noise.
 
 **Why:** Two-stage filtering — wide net at fetch, tight rubric at classify — catches the rare action-required auto-mail without polluting `tasks/` with every "we received your ticket" reply. Captured to `.claude/skills/extract-tasks/skill.md` rubric section.
+
+## 2026-05-05 — P2.3 architecture: Textual TUI, JSONL-mutating mark-done
+
+`tools/today.py` is an interactive Textual app. Default invocation (`python tools/today.py`) opens a full-screen TUI; the same script also exposes `done <id>` and `list` subcommands for scripting / pipes (and auto-falls-back to `list` when stdout isn't a tty).
+
+**Why TUI over plain stdout:** Adrian asked for "compact at first, expands when clicked on." A static dump can't do per-row expansion; a TUI can. Textual was picked over `prompt_toolkit` / `urwid` because the `Tree` widget is exactly the 2-level (account → task → details) shape we need, and `rich` styling comes for free.
+
+**Why mark-done mutates JSONL directly:** JSONL is source of truth (per P2.2 decision). Mark-done writes back immediately, then shells out to `tools/render_tasks.py` so the .md view stays in sync. CLI is one-way (`done` only) for safety; the TUI toggles open↔done.
+
+**Grouping:** by `source.account` (currently `personal` and `work`/voltlabs). Priority desc within each section.
+
+**Known limitation, deferred:** task records don't carry Gmail labels, so utwente/agroworld forwarded mail shows under `personal` (the receiving Gmail account) rather than as their own sections. To split them out, the extractor would need to record `labels` on each record. Out of scope for P2.3 — deferred to a later P2.2.x enhancement when it actually starts to bite.
+
+**New dep:** `textual>=0.50`. Pulls in `rich`, `markdown-it-py`, `pygments`, `linkify-it-py`, `mdit-py-plugins`, `mdurl`, `platformdirs`, `typing-extensions`, `uc-micro-py`. ~10 small libs total, all pure-Python.

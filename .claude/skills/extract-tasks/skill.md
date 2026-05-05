@@ -162,6 +162,16 @@ Ask: "Want to adjust any classifications, or are these tasks good?"
 
 If Adrian flags any (e.g., "the Sentry one isn't a task; it's FYI"), update the JSONL: drop the misclassified record, re-render the markdown. Capture the rule for future runs in `references/email-rules-personal.md` (or `email-rules-work.md` for voltlabs senders).
 
+### Step 9 — Optional: hand off to the TUI
+
+After extraction, suggest:
+
+```bash
+.venv/bin/python tools/today.py
+```
+
+Opens the Textual TUI for interactive review (Enter expand, `d` mark done, `o` open Gmail, `s` show/hide done, `q` quit). Marking done writes back to the JSONL and re-renders the .md.
+
 ## Constraints
 
 - **Never** auto-mark mail as read/archived — extract is read-only on Gmail
