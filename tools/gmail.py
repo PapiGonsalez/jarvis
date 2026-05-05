@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Gmail client for Jarvis. Auth + cleanup ops.
+"""Gmail client for Jarvis. Auth + cleanup ops, multi-account.
 
-Subcommands:
+Subcommands (all accept --account {personal,work}, default: personal):
   auth          Run OAuth flow / refresh token. First-time use opens browser.
   audit         Inbox state: counts, buckets, top senders.
   top-senders   List top senders by recent inbox volume.
@@ -12,8 +12,9 @@ Subcommands:
 
 Examples:
   .venv/bin/python tools/gmail.py audit
+  .venv/bin/python tools/gmail.py audit --account work
+  .venv/bin/python tools/gmail.py auth --account work
   .venv/bin/python tools/gmail.py archive --query "is:unread older_than:6m" --dry-run
-  .venv/bin/python tools/gmail.py archive --query "is:unread older_than:6m"
   .venv/bin/python tools/gmail.py apply-label --query "from:newsletter@x.com" --label "Newsletters/X" --archive
 
 Always run with --dry-run first for any bulk modify.
@@ -32,19 +33,31 @@ from googleapiclient.errors import HttpError
 
 ROOT = Path(__file__).resolve().parent.parent
 CREDS_PATH = ROOT / ".local" / "credentials.json"
-TOKEN_PATH = ROOT / ".local" / "token.json"
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.settings.basic",
 ]
 
+# Each account gets its own token file. Add new accounts here.
+ACCOUNTS = {
+    "personal": "gmail-token-personal.json",   # adriangilbert26@gmail.com
+    "work":     "gmail-token-work.json",       # adrian@voltlabs.eu
+}
 
-def get_service():
-    """Authenticated Gmail service. Runs OAuth flow if no token."""
+
+def token_path(account: str) -> Path:
+    if account not in ACCOUNTS:
+        sys.exit(f"Unknown account {account!r}. Choices: {list(ACCOUNTS)}")
+    return ROOT / ".local" / ACCOUNTS[account]
+
+
+def get_service(account: str = "personal"):
+    """Authenticated Gmail service for given account. Runs OAuth flow if no token."""
+    tp = token_path(account)
     creds = None
-    if TOKEN_PATH.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+    if tp.exists():
+        creds = Credentials.from_authorized_user_file(str(tp), SCOPES)
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -56,8 +69,8 @@ def get_service():
                 )
             flow = InstalledAppFlow.from_client_secrets_file(str(CREDS_PATH), SCOPES)
             creds = flow.run_local_server(port=0)
-        TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
-        TOKEN_PATH.write_text(creds.to_json())
+        tp.parent.mkdir(parents=True, exist_ok=True)
+        tp.write_text(creds.to_json())
     return build("gmail", "v1", credentials=creds, cache_discovery=False)
 
 
@@ -179,15 +192,17 @@ def get_or_create_label(svc, name: str) -> str:
 
 
 def cmd_auth(args):
-    svc = get_service()
+    svc = get_service(args.account)
     profile = svc.users().getProfile(userId="me").execute()
-    print(f"Authenticated as {profile['emailAddress']}")
-    print(f"Token saved to {TOKEN_PATH}")
+    print(f"Account:          {args.account}")
+    print(f"Authenticated as: {profile['emailAddress']}")
+    print(f"Token saved to    {token_path(args.account)}")
 
 
 def cmd_audit(args):
-    svc = get_service()
+    svc = get_service(args.account)
     profile = svc.users().getProfile(userId="me").execute()
+    print(f"Account:         {args.account}")
     print(f"Email:           {profile['emailAddress']}")
     print(f"Total messages:  {profile.get('messagesTotal', 0):,}")
     print(f"Total threads:   {profile.get('threadsTotal', 0):,}")
@@ -221,7 +236,7 @@ def cmd_audit(args):
 
 def cmd_preview(args):
     """Show recent messages matching a query: From, Subject, Date."""
-    svc = get_service()
+    svc = get_service(args.account)
     ids = list_message_ids(svc, args.query, max_results=args.limit)
     if not ids:
         print("(no messages match)")
@@ -234,7 +249,7 @@ def cmd_preview(args):
 
 
 def cmd_top_senders(args):
-    svc = get_service()
+    svc = get_service(args.account)
     ids = list_message_ids(svc, args.query, max_results=args.sample)
     msgs = fetch_metadata_batch(svc, ids, ["From"])
     senders = Counter(header(m, "From") for m in msgs)
@@ -259,7 +274,7 @@ def _bulk_modify(svc, ids: list[str], add: list[str], remove: list[str], action_
 
 
 def cmd_archive(args):
-    svc = get_service()
+    svc = get_service(args.account)
     ids = list_message_ids(svc, args.query)
     print(f"Query:    {args.query}")
     print(f"Matching: {len(ids):,}")
@@ -270,7 +285,7 @@ def cmd_archive(args):
 
 
 def cmd_mark_read(args):
-    svc = get_service()
+    svc = get_service(args.account)
     ids = list_message_ids(svc, args.query)
     print(f"Query:    {args.query}")
     print(f"Matching: {len(ids):,}")
@@ -281,7 +296,7 @@ def cmd_mark_read(args):
 
 
 def cmd_apply_label(args):
-    svc = get_service()
+    svc = get_service(args.account)
     label_id = get_or_create_label(svc, args.label)
     ids = list_message_ids(svc, args.query)
     print(f"Query:    {args.query}")
@@ -305,7 +320,7 @@ def _find_label(svc, name: str) -> dict:
 
 def cmd_list_labels(args):
     """List all labels with counts and colors."""
-    svc = get_service()
+    svc = get_service(args.account)
     labels = svc.users().labels().list(userId="me").execute().get("labels", [])
     full = [svc.users().labels().get(userId="me", id=l["id"]).execute() for l in labels]
     system = sorted([l for l in full if l.get("type") == "system"], key=lambda x: x["name"])
@@ -324,7 +339,7 @@ def cmd_list_labels(args):
 
 
 def cmd_delete_label(args):
-    svc = get_service()
+    svc = get_service(args.account)
     target = _find_label(svc, args.label)
     if not args.force:
         n = target.get("messagesTotal", 0)
@@ -335,7 +350,7 @@ def cmd_delete_label(args):
 
 
 def cmd_rename_label(args):
-    svc = get_service()
+    svc = get_service(args.account)
     target = _find_label(svc, args.from_name)
     svc.users().labels().patch(
         userId="me", id=target["id"], body={"name": args.to_name}
@@ -344,7 +359,7 @@ def cmd_rename_label(args):
 
 
 def cmd_set_label_color(args):
-    svc = get_service()
+    svc = get_service(args.account)
     target = _find_label(svc, args.label)
     body = {"color": {"backgroundColor": args.bg, "textColor": args.text}}
     svc.users().labels().patch(userId="me", id=target["id"], body=body).execute()
@@ -352,7 +367,14 @@ def cmd_set_label_color(args):
 
 
 def cmd_create_filter(args):
-    svc = get_service()
+    svc = get_service(args.account)
+    criteria: dict = {}
+    if args.sender_from: criteria["from"] = args.sender_from
+    if args.to_addr:     criteria["to"] = args.to_addr
+    if args.query:       criteria["query"] = args.query
+    if not criteria:
+        sys.exit("Provide at least one of --from, --to, or --query.")
+
     add_ids: list[str] = []
     remove_ids: list[str] = []
     if args.label:
@@ -362,7 +384,7 @@ def cmd_create_filter(args):
     if args.mark_read:
         remove_ids.append("UNREAD")
     body = {
-        "criteria": {"from": args.sender_from},
+        "criteria": criteria,
         "action": {
             "addLabelIds": add_ids,
             "removeLabelIds": remove_ids,
@@ -370,7 +392,8 @@ def cmd_create_filter(args):
     }
     res = svc.users().settings().filters().create(userId="me", body=body).execute()
     print(f"Filter created: id={res.get('id')}")
-    print(f"  from:       {args.sender_from}")
+    for k, v in criteria.items():
+        print(f"  {k+':':<11} {v}")
     if args.label:     print(f"  label:      {args.label}")
     if args.archive:   print(f"  archive:    yes")
     if args.mark_read: print(f"  mark read:  yes")
@@ -381,56 +404,65 @@ def main():
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    # Shared --account flag for all subcommands
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("--account", choices=list(ACCOUNTS), default="personal",
+                        help="Which Google account to use (default: personal)")
+
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("auth", help="Run OAuth flow / refresh token")
+    sub.add_parser("auth", parents=[shared], help="Run OAuth flow / refresh token")
 
-    audit = sub.add_parser("audit", help="Inbox state + top senders")
+    audit = sub.add_parser("audit", parents=[shared], help="Inbox state + top senders")
     audit.add_argument("--sample", type=int, default=300,
                        help="Recent inbox messages to sample for top senders")
 
-    pv = sub.add_parser("preview", help="Show From/Subject/Date for matching messages")
+    pv = sub.add_parser("preview", parents=[shared], help="Show From/Subject/Date for matching messages")
     pv.add_argument("--query", required=True)
     pv.add_argument("--limit", type=int, default=10)
 
-    ts = sub.add_parser("top-senders", help="Top senders by recent inbox volume")
+    ts = sub.add_parser("top-senders", parents=[shared], help="Top senders by recent inbox volume")
     ts.add_argument("--query", default="in:inbox")
     ts.add_argument("--sample", type=int, default=500)
     ts.add_argument("--limit", type=int, default=20)
 
-    arc = sub.add_parser("archive", help="Archive messages matching query")
+    arc = sub.add_parser("archive", parents=[shared], help="Archive messages matching query")
     arc.add_argument("--query", required=True)
     arc.add_argument("--dry-run", action="store_true")
 
-    mr = sub.add_parser("mark-read", help="Mark matching as read")
+    mr = sub.add_parser("mark-read", parents=[shared], help="Mark matching as read")
     mr.add_argument("--query", required=True)
     mr.add_argument("--dry-run", action="store_true")
 
-    al = sub.add_parser("apply-label", help="Apply label to matching")
+    al = sub.add_parser("apply-label", parents=[shared], help="Apply label to matching")
     al.add_argument("--query", required=True)
     al.add_argument("--label", required=True)
     al.add_argument("--archive", action="store_true")
     al.add_argument("--dry-run", action="store_true")
 
-    sub.add_parser("list-labels", help="List all labels with counts and colors")
+    sub.add_parser("list-labels", parents=[shared], help="List all labels with counts and colors")
 
-    dl = sub.add_parser("delete-label", help="Delete a user label by name (messages stay)")
+    dl = sub.add_parser("delete-label", parents=[shared], help="Delete a user label by name (messages stay)")
     dl.add_argument("--label", required=True)
     dl.add_argument("--force", action="store_true",
                     help="Delete even if label has messages")
 
-    rn = sub.add_parser("rename-label", help="Rename a label by name")
+    rn = sub.add_parser("rename-label", parents=[shared], help="Rename a label by name")
     rn.add_argument("--from", dest="from_name", required=True)
     rn.add_argument("--to", dest="to_name", required=True)
 
-    sc = sub.add_parser("set-label-color", help="Set background and text colors on a label")
+    sc = sub.add_parser("set-label-color", parents=[shared], help="Set background and text colors on a label")
     sc.add_argument("--label", required=True)
     sc.add_argument("--bg", required=True, help="Background hex (e.g. #16a766)")
     sc.add_argument("--text", required=True, help="Text hex (e.g. #ffffff)")
 
-    cf = sub.add_parser("create-filter", help="Persistent Gmail filter")
-    cf.add_argument("--from", dest="sender_from", required=True,
-                    help="Match: --from 'x@y.com' or '*@y.com'")
+    cf = sub.add_parser("create-filter", parents=[shared], help="Persistent Gmail filter")
+    cf.add_argument("--from", dest="sender_from", default=None,
+                    help="Match by sender: 'x@y.com' or '*@y.com'")
+    cf.add_argument("--to", dest="to_addr", default=None,
+                    help="Match by recipient (useful for forwarded mail)")
+    cf.add_argument("--query", default=None,
+                    help="Free-form Gmail search syntax (e.g. 'subject:invoice has:attachment')")
     cf.add_argument("--label", default=None)
     cf.add_argument("--archive", action="store_true")
     cf.add_argument("--mark-read", action="store_true")

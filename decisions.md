@@ -119,3 +119,30 @@ Adrian clarified mid-session: tasks come from emails, not calendars. His morning
 `*@mail.marktplaats.nl` (per-buyer hashed addresses) gets the `Marktplaats` label but stays in inbox.
 
 **Why:** These are buyers asking about Adrian's listings — actual people wanting to give him money. Auto-archiving would lose visibility on revenue-relevant messages. Label gives a searchable bucket without removing inbox visibility.
+
+## 2026-05-05 — P2.1: M365 email reaches Jarvis via Outlook forwarding rules, not API
+
+utwente + agroworld both block API-based mail access (Mail.Read scope requires admin consent, declined). Instead, both Outlook tenants forward incoming mail to `adriangilbert26@gmail.com`. Personal Gmail filters apply `Forwarded/UTwente` (purple) and `Forwarded/Agroworld` (teal) labels based on the original `To:` header (M365 redirect preserves it). Mail lands in personal inbox + label.
+
+**Why:** Adrian declines admin-consent requests (per global feedback rule). Forwarding is user-configurable in Outlook, requires no IT involvement, and preserves the original To header so Gmail filters work. The Forwarded/* prefix is kept distinct from Education/* to signal "this came in via the M365 redirect pipeline".
+
+**Forward-going only:** M365 forwarding doesn't migrate historical mail. POP/IMAP fetcher in personal Gmail would have backfilled, but both tenants disable POP/IMAP at the admin level. Decision: live with the cutoff — P2.2 task extraction needs current mail, not archives.
+
+## 2026-05-05 — voltlabs Gmail joins the multi-account pipeline
+
+`tools/gmail.py` refactored with shared `--account` flag (`personal` default, `work=voltlabs`). Mirrors `gcal.py`'s pattern. Token files renamed: `.local/token.json` → `.local/gmail-token-personal.json`, plus new `.local/gmail-token-work.json`. The `cleanup-inbox` skill stays personal-by-default (omitting --account = personal); appended note covers the voltlabs case.
+
+**Why:** Same OAuth Desktop client (`gmail-inbox-clearer`) works for voltlabs Gmail because adrian@voltlabs.eu is already a test user from P2 calendar setup. Workspace admin doesn't block the gmail.modify scope (verified by successful audit).
+
+## 2026-05-05 — Account taxonomy at end of P2.1
+
+Four accounts now reachable by Jarvis:
+
+| Account                                            | Method                          | Read | Write |
+| -------------------------------------------------- | ------------------------------- | ---- | ----- |
+| adriangilbert26@gmail.com (personal Gmail)         | OAuth `gmail.modify`            | ✓    | ✓     |
+| adrian@voltlabs.eu (voltlabs Gmail)                | OAuth `gmail.modify` --account work | ✓    | ✓     |
+| a.g.thereparambil@student.utwente.nl (utwente M365)| Forward → personal Gmail label  | ✓ (new mail) | ✗ |
+| adrian@agroworld.nl (agroworld M365)               | Forward → personal Gmail label  | ✓ (new mail) | ✗ |
+
+**Why:** Two Gmail accounts directly auditable; two M365 accounts visible via forwarding into personal Gmail. P2.2 task extraction reads from personal + voltlabs (Gmail API) and gets utwente+agroworld content via the Forwarded/* labels in personal.

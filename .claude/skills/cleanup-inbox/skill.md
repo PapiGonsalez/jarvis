@@ -7,6 +7,8 @@ description: Conversational personal Gmail cleanup. Audits inbox, proposes batch
 
 Personal Gmail cleanup for `adriangilbert26@gmail.com`. Conversational — every bulk action requires explicit confirmation. All operations go through `tools/gmail.py` (see file for full CLI).
 
+**Account scope:** This skill targets the **personal** account by default (omitting `--account` is equivalent to `--account personal`). For voltlabs work Gmail (`adrian@voltlabs.eu`), append `--account work` to every `gmail.py` call below, and capture rules into `references/email-rules-work.md` instead of `email-rules-personal.md`. The SOP otherwise applies unchanged.
+
 ## Prerequisites
 
 - `.local/credentials.json` exists (Google OAuth Desktop app credentials)

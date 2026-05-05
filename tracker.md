@@ -2,7 +2,7 @@
 
 ## Status
 
-**Phase: P2 (calendars) wrapping → P2.1 (multi-account email + forwarding rules) next**
+**Phase: P2.1 (multi-account email + forwarding) shipped → P2.2 (email→task extraction) next**
 
 ## Done
 
@@ -13,11 +13,12 @@
 
 - 2026-05-05 — P2: Calendar tooling (`tools/gcal.py` multi-account, `tools/outlook_cal.py` Microsoft Graph, `tools/ics_cal.py` ICS feeds). Personal Calendar cleaned (6 ENDED series deleted). voltlabs Calendar audited (empty by design). utwente Calendar read-only via ICS feed. agroworld Calendar dropped (admin-blocked). cleanup-calendar skill written.
 - 2026-05-05 — Mid-P2 pivot: emails are the priority, not calendars. Phase plan revised — P2.1/P2.2/P2.3 inserted before dashboard skeleton.
+- 2026-05-05 — P2.1: Multi-account email pipeline live. `tools/gmail.py` refactored with `--account {personal,work}` (mirrors gcal.py). voltlabs Gmail OAuth'd + audited (288 msgs, mostly dev tooling). utwente + agroworld Outlook forwarding rules set → personal Gmail. Gmail filters created (`to:` → `Forwarded/UTwente` purple, `Forwarded/Agroworld` teal). M365 POP/IMAP admin-blocked → no historical backlog migration; forward-from-now-on only.
 
 ## Next up
 
 - **P2 follow-up (any time):** Adrian completes 27 manual unsubscribes in Gmail. Manual cleanup of utwente Outlook calendar if desired (Jarvis can't write there).
-- **P2.1 (now):** Set up forwarding rules in utwente + agroworld Outlook → Gmail (workaround for M365 email block). Wire voltlabs Gmail via existing tools/gmail.py with new `--account work` flag.
+- **P2.2 (now):** Email → task extraction. Read recent mail across personal+voltlabs Gmail (which now also receives utwente+agroworld via forwarding labels). LLM-extract task-shaped content → `tasks/<date>.md` or JSONL. Decisions to make: cron schedule, dedup strategy, confidence threshold.
 
 ## Phase plan (revised after P2 pivot)
 
