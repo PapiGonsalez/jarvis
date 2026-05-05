@@ -153,7 +153,7 @@ def _compute_calendar_window(window_hours: int) -> tuple[datetime, datetime]:
 @app.get("/calendar/upcoming", response_model=CalendarOut)
 async def calendar_upcoming(window_hours: int = 36) -> CalendarOut:
     fixture_path = os.environ.get("JARVIS_CALENDAR_FIXTURE")
-    if fixture_path:
+    if fixture_path and os.path.exists(fixture_path):
         with open(fixture_path) as f:
             return CalendarOut(**json.load(f))
 

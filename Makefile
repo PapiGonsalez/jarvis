@@ -18,4 +18,5 @@ web:
 	cd apps/web && npm run dev
 
 api:
-	.venv/bin/uvicorn apps.api.main:app --reload --port 8001
+	JARVIS_CALENDAR_FIXTURE=$${JARVIS_CALENDAR_FIXTURE:-/tmp/jarvis-calendar-active-fixture.json} \
+	  .venv/bin/uvicorn apps.api.main:app --reload --port 8001
