@@ -18,6 +18,7 @@ Adrian is a working student dev. Jarvis runs locally and grows with him.
 
 ## Behavior in this repo
 
+- **Adrian owns the "done" call.** Never declare a task or phase complete unilaterally. Before any `git commit`, `git push`, marking todos done, transitioning phases, or saving session notes — ASK Adrian explicitly: "are we done with X, or is there more?" Wait for an affirmative answer.
 - Read `tracker.md` first to know the current build phase before suggesting next moves.
 - Append to `decisions.md` when meaningful design choices land. Date them.
 - Skills live in `.claude/skills/`. One job per skill. Max ~500 lines; split into `references/` if larger.
