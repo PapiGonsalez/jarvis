@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import webbrowser
@@ -25,6 +26,16 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 TASKS_DIR = REPO_ROOT / "tasks"
 RENDER_SCRIPT = REPO_ROOT / "tools" / "render_tasks.py"
+
+
+def _fixture_path() -> Path | None:
+    """Return the active fixture file path if `JARVIS_TASKS_FIXTURE` is set
+    and the file exists. Used by Playwright tests to isolate from real data.
+    """
+    env = os.environ.get("JARVIS_TASKS_FIXTURE")
+    if env and Path(env).exists():
+        return Path(env)
+    return None
 
 PRIORITY_RANK = {"high": 0, "medium": 1, "med": 1, "low": 2}
 PRIORITY_GLYPH = {
@@ -36,6 +47,9 @@ PRIORITY_GLYPH = {
 
 
 def jsonl_path(d: date_cls) -> Path:
+    fix = _fixture_path()
+    if fix:
+        return fix
     return TASKS_DIR / f"{d.isoformat()}.jsonl"
 
 
@@ -64,6 +78,10 @@ def save_tasks(d: date_cls, tasks: list[dict]) -> None:
 
 
 def re_render(d: date_cls) -> None:
+    # Skip the .md re-render when running under fixture mode — tests don't
+    # check the rendered markdown, and we don't want stray .md files in /tmp.
+    if _fixture_path():
+        return
     if not RENDER_SCRIPT.exists():
         return
     src = jsonl_path(d)
