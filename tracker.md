@@ -7,7 +7,7 @@
 ## Done
 
 - 2026-05-05 — P0: repo scaffolded, CLAUDE.md, decisions log, folder tree, git init on `main`
-- 2026-05-05 — P1: cleanup-inbox skill + tools/gmail.py + venv. Personal Gmail 22,981 → 5,114 inbox (-17,867). 5 filters live, 9 labels. Rules captured to `references/email-rules-personal.md`. Skill is reusable for ongoing triage.
+- 2026-05-05 — P1: cleanup-inbox skill + tools/gmail.py + venv. Personal Gmail 22,981 → 5,071 inbox (-17,910). 5 filters live, 10 labels (incl. Banking/India for confirmed Indian banking accounts). 13 senders manually unsubscribed pending. Rules captured to `references/email-rules-personal.md`. Skill is reusable for ongoing triage.
 
 ## Next up
 

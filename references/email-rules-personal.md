@@ -2,16 +2,16 @@
 
 Captured during P1 cleanup. Source of truth for `cleanup-inbox` and (future) `triage-inbox` skills.
 
-## Stats — initial cleanup pass (2026-05-05)
+## Stats — cumulative (2026-05-05)
 
-| Metric | Before | After |
-|---|---:|---:|
-| Inbox total | 22,981 | **5,114** |
-| Unread in inbox | ~19,700 | **1,909** |
-| Filters active (auto-route) | 0 | **5** |
-| Labels created | 0 | **9** |
+| Metric | Before | After batch 1-3 | After batch 4 |
+|---|---:|---:|---:|
+| Inbox total | 22,981 | 5,114 | **5,071** |
+| Unread in inbox | ~19,700 | 1,909 | **1,868** |
+| Filters active (auto-route) | 0 | 5 | **5** |
+| Labels created | 0 | 9 | **10** |
 
-Total messages moved out of inbox: ~17,867.
+Total messages moved out of inbox: ~17,910.
 
 ## Bulk passes
 
@@ -37,6 +37,9 @@ Total messages moved out of inbox: ~17,867.
 |---|---|---|
 | `noreply@dhlecommerce.nl` | `Shipping/DHL` | Shipping — want visible when expecting a package |
 | `*@mail.marktplaats.nl` | `Marktplaats` | Buyer messages — actual people wanting to give money |
+| `alerts@dcbbank.com` | `Banking/India` | DCB Bank transaction alerts — financial, legitimate account |
+| `donotreply@dcbbank.com` | `Banking/India` | DCB Bank statements/system messages |
+| `info@digital.axisbankmail.bank.in` | `Banking/India` | Axis Bank — financial, legitimate account |
 
 ## Keep in inbox (no label, no action)
 
@@ -60,14 +63,14 @@ These need a one-time human click on the Unsubscribe chip in any sample email. E
 - [ ] `mail@mailer.hollandandbarrett.nl` — Health/supplements (61)
 - [ ] `news@mail.sovendus.com` — Deal aggregator (30)
 - [ ] `remind@notice.alibaba.com` — Promo reminders (9)
+- [ ] `happiness@moments.fnp.com` — FNP / Ferns N Petals marketing (35 archived)
+- [ ] `ae-best-message-notice20@newarrival.aliexpress.com` — AliExpress recommendations (8 archived)
 
 When Adrian completes an unsubscribe, change `[ ]` to `[x]` here.
 
 ## Investigate later (not blocking)
 
-- **DCB Bank** (`alerts@dcbbank.com`) — Indian bank transaction alerts (creditedit, debit, beneficiary creation). Determine:
-  - Do you have a DCB Bank account? If yes, log in and check for legit transactions.
-  - If no: someone may have used your email to register, OR phishing. Investigate sender authenticity before action.
+- ~~DCB Bank — confirmed legitimate (Adrian has Indian banking accounts).~~ Resolved 2026-05-05.
 
 ## Sender catalog (not yet decided)
 
