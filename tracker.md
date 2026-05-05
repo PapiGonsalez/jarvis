@@ -2,22 +2,24 @@
 
 ## Status
 
-**Phase: P0 (repo scaffold) ✓ → P1 (email cleanup skill) — next**
+**Phase: P1 (email cleanup) — initial pass shipped + ongoing triage live → P2 next**
 
 ## Done
 
 - 2026-05-05 — P0: repo scaffolded, CLAUDE.md, decisions log, folder tree, git init on `main`
+- 2026-05-05 — P1: cleanup-inbox skill + tools/gmail.py + venv. Personal Gmail 22,981 → 5,114 inbox (-17,867). 5 filters live, 9 labels. Rules captured to `references/email-rules-personal.md`. Skill is reusable for ongoing triage.
 
 ## Next up
 
-- P1: Email cleanup skill — Claude Code skill, conversational, cleans personal Gmail (~3hr)
+- **P1 follow-up (any time):** Adrian completes 11 manual unsubscribes in Gmail (list in `references/email-rules-personal.md`). Optional: re-run skill to handle remaining 5,114 inbox tail.
+- **P2: Calendar organization** — audit + cleanup of personal Google Calendar, similar shape to P1 (~2-3 hrs).
 
 ## Phase plan
 
 | #   | What                                                         | Hours    |
 | --- | ------------------------------------------------------------ | -------- |
 | P0  | Repo scaffold                                                | 1 ✓      |
-| P1  | Email cleanup skill (personal Gmail)                         | 3        |
+| P1  | Email cleanup skill (personal Gmail)                         | 3 ✓      |
 | P2  | Calendar organization                                        | 2-3      |
 | P3  | Dashboard skeleton (localhost: empty tiles + chat + buttons) | 3        |
 | P4  | Wire calendar tile (auto-pull from Google Calendar)          | 3        |

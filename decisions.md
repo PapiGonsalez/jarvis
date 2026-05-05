@@ -63,3 +63,27 @@ Today's tasks (ranked), Ideas in progress (with status), Tokens used (5h window)
 - Vector DB / RAG / embeddings (until grep + Obsidian search stop working)
 
 **Why:** Each is a tempting addition that costs more than it returns at this scale. Revisit only if needs change.
+
+## 2026-05-05 — P1 architecture: Python helpers + Claude Code skill
+
+`tools/gmail.py` is a CLI with subcommands (auth/audit/preview/top-senders/archive/mark-read/apply-label/create-filter). `.claude/skills/cleanup-inbox/skill.md` is the conversational SOP that calls those subcommands. OAuth via Desktop client (Google Cloud project `gmail-inbox-clearer`), credentials in `.local/credentials.json` (gitignored), token in `.local/token.json` (gitignored).
+
+**Why:** Keeps logic in Python (testable, reusable across skills) and policy in markdown (Claude reads, asks Adrian, executes). Skill stays under 500 lines per CLAUDE.md convention. Avoids the Gmail MCP cost (would always-load context tokens for a tool we run weekly, not constantly).
+
+## 2026-05-05 — P1 cleanup approach: bankruptcy + per-sender walk + batch unsub
+
+Phase 1 of cleanup: bulk archive `is:unread older_than:6m` (16,943 messages). Phase 2: walked top 12 senders one at a time (label-and-archive vs unsubscribe-and-archive vs keep). Phase 3: batched 6 fashion/marketing senders together for speed.
+
+**Why:** Per-sender walks have diminishing returns past the top ~10. Batching the long-tail fashion newsletters (ASOS, JD Sports, Zalando, etc.) saved ~6 question rounds without losing meaningful control. The bankruptcy move was the highest leverage by an order of magnitude.
+
+## 2026-05-05 — Don't auto-unsubscribe; user clicks Unsubscribe in Gmail
+
+For senders Adrian wants to stop receiving, the skill archives existing messages but does NOT click Unsubscribe links automatically. Adrian completes the unsubscribe manually via Gmail's UI chip.
+
+**Why:** Some "unsubscribe" links are tracking/malicious. Some confirm the email is valid (used for spam targeting). Better to let the user evaluate per sender. The cost is 11 manual clicks; the benefit is no risk of clicking a bad link.
+
+## 2026-05-05 — Marktplaats messages stay in inbox
+
+`*@mail.marktplaats.nl` (per-buyer hashed addresses) gets the `Marktplaats` label but stays in inbox.
+
+**Why:** These are buyers asking about Adrian's listings — actual people wanting to give him money. Auto-archiving would lose visibility on revenue-relevant messages. Label gives a searchable bucket without removing inbox visibility.
