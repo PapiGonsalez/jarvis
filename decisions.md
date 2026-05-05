@@ -146,3 +146,46 @@ Four accounts now reachable by Jarvis:
 | adrian@agroworld.nl (agroworld M365)               | Forward → personal Gmail label  | ✓ (new mail) | ✗ |
 
 **Why:** Two Gmail accounts directly auditable; two M365 accounts visible via forwarding into personal Gmail. P2.2 task extraction reads from personal + voltlabs (Gmail API) and gets utwente+agroworld content via the Forwarded/* labels in personal.
+
+## 2026-05-05 — P2.2 architecture: skill-driven classification, no API key
+
+Email→task extraction runs as a Claude Code skill (`extract-tasks`), not a cron job calling Claude API. `tools/gmail.py fetch-recent` dumps recent mail to JSONL; the skill reads it in-conversation, classifies, writes `tasks/<date>.jsonl`; `tools/render_tasks.py` produces `tasks/<date>.md`.
+
+**Why:** No external API key, no separate billing, no cron infrastructure. Adrian triggers extraction when he wants the morning brief. Trade-off: not automatic — if Adrian forgets, no extraction happens. Acceptable because the trigger ("hey Jarvis, what's on my plate today") is itself a useful daily ritual.
+
+**Storage:** Both JSONL (canonical) and markdown (rendered view) are written to `tasks/`. JSONL is source of truth; markdown is regenerable. P2.3 CLI brief and P4 dashboard tile both consume JSONL directly.
+
+**Look-back:** `--days 1` on every run. Dedup via `.local/extracted-tasks-state.json` (Message-Id → ISO timestamp). State file tracks ALL Message-Ids in the working set per run, not just the ones that became tasks — prevents re-classifying skipped mail tomorrow.
+
+## 2026-05-05 — Idea handling: hard skip from `tasks/`
+
+The CLAUDE.md task-vs-idea distinction is enforced strictly by the extract-tasks classifier. Self-directed mail (project threads, exploratory subscriptions like Lovable updates, things Adrian is *building* not things others want from him) is classified as `idea` and dropped from the daily task pipeline entirely.
+
+**Why:** Mixing ideas into `tasks/` would defeat the point of the distinction (tasks are deliverables for others; ideas are personal work). Ideas belong in `ideas/<topic>.md`, not the daily list. P6 will give them a separate dashboard tile.
+
+## 2026-05-05 — Marktplaats classification refined for task extraction
+
+Original P1 rule: Marktplaats messages stay in inbox (visibility, not auto-archived). That rule held — every Marktplaats message still lands in inbox and gets the `Marktplaats` label.
+
+P2.2 refinement: not every Marktplaats message is task-shaped. Split:
+
+- **Task** (low priority, due ≈ today): explicit price offer, pickup/delivery commitment, scheduling proposal. Buyer urgency expires same-day, so timeliness matters.
+- **Skip** (`revenue` category in classifier): pleasantries, generic interest, photo requests, follow-ups on already-replied threads.
+
+**Why:** First-pass classifier treated all Marktplaats messages identically (skip), but actual offers from buyers ARE actionable. The split rule extracts the high-signal subset without polluting `tasks/` with "is it still available?" pings. Captured to `references/email-rules-personal.md` under "Classification rules for extract-tasks skill (P2.2+)".
+
+## 2026-05-05 — `tasks/` tracked in git (private repo trust boundary)
+
+`tasks/<date>.{jsonl,md}` are committed alongside code. Repo is private (`PapiGonsalez/jarvis`); Adrian is the only reader. Trade-off accepted: legal/work correspondence summaries are now in git history. Mitigation: don't make the repo public.
+
+**Alternative considered:** Gitignore `tasks/`. Rejected — loses cross-device history and turns the repo into "code only", undercutting the point of having one place for all of Jarvis's state.
+
+**Alternative considered:** Redact subjects/bodies before write. Rejected — the context (sender, subject, snippet) is what makes the daily brief useful for picking up a task cold the next morning.
+
+## 2026-05-05 — extract-tasks scope: include Updates, lean strict on classification
+
+Initial fetch-recent default excluded Promotions+Social+Updates. After first smoke-test, realised Updates contains genuine signal: support-ticket replies asking for follow-up, bank statements with action notices, account-action prompts. Switched default to exclude only Promotions+Social.
+
+But the classifier itself stays strict on what becomes a task. Specifically: support-ticket back-and-forth (GitHub support, zendesk-style threads) classifies as `fyi`/skip even when the support agent asks for info, because Adrian tracks active support threads in the source system. Surfacing them daily is noise.
+
+**Why:** Two-stage filtering — wide net at fetch, tight rubric at classify — catches the rare action-required auto-mail without polluting `tasks/` with every "we received your ticket" reply. Captured to `.claude/skills/extract-tasks/skill.md` rubric section.

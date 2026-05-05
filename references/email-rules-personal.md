@@ -137,3 +137,16 @@ To run another pass anytime:
 3. The skill, tool, OAuth, and rules persist — picks up cold
 
 For specific operations: see `tools/gmail.py --help`.
+
+## Classification rules for `extract-tasks` skill (P2.2+)
+
+These refine the P1 rules above. P1 was about *where* mail lands (inbox/label/archive). These are about *whether* a message becomes a task in `tasks/<date>.jsonl`.
+
+### Marktplaats — split rule (refined 2026-05-05)
+
+Marktplaats per-buyer addresses (`*@mail.marktplaats.nl`) all carry the `Marktplaats` label and stay in inbox (P1 rule unchanged). For task extraction:
+
+- **Task** (low priority, due ≈ today): explicit price offer ("I'll pay €250"), pickup/delivery commitment ("I can come Saturday at 14:00"), scheduling proposal. Buyer urgency typically expires same-day.
+- **Skip** (revenue, no task): pleasantries ("good luck"), generic interest ("is it still available?"), photo requests, lowball pings without commitment, follow-ups on threads where Adrian has already replied.
+
+**Why split:** every Marktplaats message looked the same to the first-pass classifier, but only the explicit-offer ones are actually task-shaped. Generic interest doesn't need a daily task list entry — Adrian sees them in inbox and replies if interested.

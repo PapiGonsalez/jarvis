@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Gmail client for Jarvis. Auth + cleanup ops, multi-account.
+"""Gmail client for Jarvis. Auth + cleanup + extract-feed ops, multi-account.
 
 Subcommands (all accept --account {personal,work}, default: personal):
   auth          Run OAuth flow / refresh token. First-time use opens browser.
@@ -9,17 +9,21 @@ Subcommands (all accept --account {personal,work}, default: personal):
   mark-read     Mark matching messages as read.
   apply-label   Apply label to matching, optionally also archive.
   create-filter Create a persistent Gmail filter (auto-applies on new mail).
+  fetch-recent  Dump recent mail (with bodies) to JSONL for downstream extraction.
 
 Examples:
   .venv/bin/python tools/gmail.py audit
   .venv/bin/python tools/gmail.py audit --account work
   .venv/bin/python tools/gmail.py auth --account work
   .venv/bin/python tools/gmail.py archive --query "is:unread older_than:6m" --dry-run
-  .venv/bin/python tools/gmail.py apply-label --query "from:newsletter@x.com" --label "Newsletters/X" --archive
+  .venv/bin/python tools/gmail.py fetch-recent --days 1 --output /tmp/recent.jsonl
 
 Always run with --dry-run first for any bulk modify.
 """
 import argparse
+import base64
+import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -189,6 +193,105 @@ def get_or_create_label(svc, name: str) -> str:
         },
     ).execute()
     return created["id"]
+
+
+def decode_body(msg: dict) -> str:
+    """Extract plain-text body from a full Gmail message. Walks MIME parts.
+    Falls back to stripped HTML, then to snippet.
+    """
+    payload = msg.get("payload", {})
+
+    def walk(part, want_mime: str) -> str | None:
+        mime = part.get("mimeType", "")
+        body_data = part.get("body", {}).get("data", "")
+        if mime == want_mime and body_data:
+            try:
+                return base64.urlsafe_b64decode(body_data).decode("utf-8", errors="replace")
+            except Exception:
+                return None
+        for sub in part.get("parts", []):
+            result = walk(sub, want_mime)
+            if result:
+                return result
+        return None
+
+    text = walk(payload, "text/plain")
+    if text:
+        return text
+    html = walk(payload, "text/html")
+    if html:
+        text = re.sub(r"<style[^>]*>.*?</style>", " ", html, flags=re.S | re.I)
+        text = re.sub(r"<script[^>]*>.*?</script>", " ", text, flags=re.S | re.I)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
+    return msg.get("snippet", "")
+
+
+def cmd_fetch_recent(args):
+    """Dump recent mail (with bodies) to JSONL for downstream task extraction."""
+    svc = get_service(args.account)
+    profile = svc.users().getProfile(userId="me").execute()
+    email_addr = profile["emailAddress"]
+
+    query_parts = [args.query] if args.query else ["in:inbox"]
+    if args.days:
+        query_parts.append(f"newer_than:{args.days}d")
+    if not args.include_categories:
+        # Exclude Promotions + Social by default. Keep Updates — it catches real
+        # support-ticket replies, account actions, and bank statements alongside noise.
+        # The classifier handles the noise; the cost of missing an action-required
+        # auto-system email outweighs the cost of more emails to read.
+        query_parts += ["-category:promotions", "-category:social"]
+    full_query = " ".join(query_parts)
+
+    seen_ids: set[str] = set()
+    if args.state_file:
+        sp = Path(args.state_file)
+        if sp.exists():
+            try:
+                state = json.loads(sp.read_text())
+                seen_ids = set(state.keys())
+            except Exception as e:
+                print(f"# state file unreadable, ignoring: {e}", file=sys.stderr)
+
+    ids = list_message_ids(svc, full_query, max_results=args.limit)
+    print(f"# Account: {email_addr} (--account {args.account})", file=sys.stderr)
+    print(f"# Query:   {full_query}", file=sys.stderr)
+    print(f"# Found:   {len(ids)} candidates", file=sys.stderr)
+
+    out_f = open(args.output, "w") if args.output else sys.stdout
+    new_count = skip_count = 0
+    try:
+        for msg_id in ids:
+            msg = svc.users().messages().get(userId="me", id=msg_id, format="full").execute()
+            mid_header = header(msg, "Message-Id") or msg_id
+            if mid_header in seen_ids:
+                skip_count += 1
+                continue
+            body = decode_body(msg)
+            if args.body_limit and len(body) > args.body_limit:
+                body = body[:args.body_limit] + f"\n…[truncated at {args.body_limit} chars]"
+            record = {
+                "message_id": mid_header,
+                "thread_id": msg.get("threadId"),
+                "account": args.account,
+                "account_email": email_addr,
+                "from": header(msg, "From"),
+                "to": header(msg, "To"),
+                "subject": header(msg, "Subject"),
+                "date": header(msg, "Date"),
+                "snippet": msg.get("snippet", ""),
+                "body": body,
+                "labels": msg.get("labelIds", []),
+                "gmail_url": f"https://mail.google.com/mail/?authuser={email_addr}#all/{msg.get('threadId')}",
+            }
+            out_f.write(json.dumps(record, ensure_ascii=False) + "\n")
+            new_count += 1
+    finally:
+        if args.output:
+            out_f.close()
+    print(f"# Wrote:   {new_count} new (skipped {skip_count} from state)", file=sys.stderr)
 
 
 def cmd_auth(args):
@@ -467,6 +570,23 @@ def main():
     cf.add_argument("--archive", action="store_true")
     cf.add_argument("--mark-read", action="store_true")
 
+    fr = sub.add_parser("fetch-recent", parents=[shared],
+                        help="Dump recent mail (with bodies) to JSONL for task extraction")
+    fr.add_argument("--days", type=int, default=1,
+                    help="Look-back window in days (default: 1)")
+    fr.add_argument("--query", default=None,
+                    help="Override base query (default: 'in:inbox'). Combined with --days and category filters.")
+    fr.add_argument("--include-categories", action="store_true",
+                    help="Include Promotions/Social/Updates tabs (default: excluded)")
+    fr.add_argument("--limit", type=int, default=200,
+                    help="Max messages to fetch (default: 200)")
+    fr.add_argument("--state-file", default=None,
+                    help="JSON file mapping Message-Id → ISO timestamp; matched IDs are skipped")
+    fr.add_argument("--output", default=None,
+                    help="Write JSONL to this path (default: stdout)")
+    fr.add_argument("--body-limit", type=int, default=20000,
+                    help="Truncate each body at N chars (default: 20000; 0 = no limit)")
+
     args = p.parse_args()
 
     handlers = {
@@ -478,6 +598,7 @@ def main():
         "mark-read":     cmd_mark_read,
         "apply-label":   cmd_apply_label,
         "create-filter": cmd_create_filter,
+        "fetch-recent":  cmd_fetch_recent,
         "list-labels":   cmd_list_labels,
         "delete-label":  cmd_delete_label,
         "rename-label":  cmd_rename_label,
