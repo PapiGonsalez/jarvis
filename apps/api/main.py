@@ -18,7 +18,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from tools import gcal, ics_cal, ideas as ideas_tool
+from tools import gcal, ics_cal, ideas as ideas_tool, tokens as tokens_tool
 from tools.today import (
     group_by_account,
     load_tasks,
@@ -98,6 +98,26 @@ class Idea(BaseModel):
 
 class IdeasOut(BaseModel):
     ideas: list[Idea]
+
+
+class TokensProject(BaseModel):
+    label: str
+    tokens: int
+    share: float
+
+
+class TokensDaily(BaseModel):
+    date: str
+    tokens: int
+
+
+class TokensSummary(BaseModel):
+    window: dict[str, Any]
+    total_tokens: int
+    prior_total: int
+    delta_pct: float | None = None
+    daily: list[TokensDaily]
+    projects: list[TokensProject]
 
 
 app = FastAPI(title="Jarvis API", version="0.1.0")
@@ -236,6 +256,29 @@ async def ideas_list() -> IdeasOut:
         with open(fixture_path) as f:
             return IdeasOut(**json.load(f))
     return IdeasOut(ideas=[_to_idea(i) for i in ideas_tool.get_ideas()])
+
+
+@app.get("/tokens/summary", response_model=TokensSummary)
+async def tokens_summary(days: int = 7) -> TokensSummary:
+    fixture_path = os.environ.get("JARVIS_TOKENS_FIXTURE")
+    if fixture_path and os.path.exists(fixture_path):
+        with open(fixture_path) as f:
+            return TokensSummary(**json.load(f))
+
+    s = tokens_tool.get_summary(days)
+
+    # D-P7-04: top 5 + "Other" sum of the rest. Subagents already attributed
+    # to parent project per revised D-P7-05.
+    full = list(s["projects"])
+    if len(full) > 5:
+        top5 = full[:5]
+        rest = full[5:]
+        other_tokens = sum(p["tokens"] for p in rest)
+        other_share = sum(p["share"] for p in rest)
+        top5.append({"label": "Other", "tokens": other_tokens, "share": other_share})
+        s["projects"] = top5
+
+    return TokensSummary(**s)
 
 
 @app.post("/tasks/{task_id}/done", response_model=ToggleOut)
